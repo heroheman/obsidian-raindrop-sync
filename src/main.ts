@@ -1,7 +1,7 @@
 import {
-	Notice,
-	Plugin,
-	PluginSettingTab,
+    Notice,
+    Plugin,
+    PluginSettingTab,
 	Setting,
 	ToggleComponent,
 	TextAreaComponent,
@@ -26,20 +26,21 @@ const DEFAULT_SETTINGS: RaindropSyncSettings = {
 	collectionIds: [],
 	expandedCollectionIds: [],
 	cascadeSelection: true,
-	template: `- [{{title}}]({{link}}) *{{getBaseUrl link}}* - {{formatDate created}}
+	template: `- [{{title}}]({{link}}) *{{getBaseUrl link}}*
     {{#if tags.length}}
-    - Tags: {{formatTags tags}}
+    - _Tags_: {{formatTags tags}}
     {{/if}}
     {{#if note}}
-    - **Note**: 
-      {{{note}}}
+    - **Note**:
+        - {{formatText note}}
     {{/if}}
     {{#if highlights.length}}
     - **Highlights**:
       {{#each highlights}}
-        - {{{text}}}
+        - {{formatHighlightText text}}
           {{#if note}}
-            - *Note: {{{note}}}*
+            - *Note*:
+			    - {{formatText note}}*
           {{/if}}
       {{/each}}
     {{/if}}`
@@ -48,8 +49,8 @@ const DEFAULT_SETTINGS: RaindropSyncSettings = {
 export default class RaindropSyncPlugin extends Plugin {
 	settings: RaindropSyncSettings;
 
-	async onload() {
-		await this.loadSettings();
+    async onload() {
+        await this.loadSettings();
 
 		Handlebars.registerHelper('formatDate', function (dateStr: string) {
 			return new Date(dateStr).toISOString().slice(0, 10);
@@ -71,6 +72,36 @@ export default class RaindropSyncPlugin extends Plugin {
 			}
 		});
 
+		Handlebars.registerHelper('formatText', function (text: string) {
+			if (!text) return '';
+			// Escape hashtags to prevent them from being interpreted as Obsidian tags
+			let escaped = text.replace(/#/g, '\\#');
+			// Split by paragraphs (double newlines or single newlines) and create list items
+			const paragraphs = escaped.split(/\n+/).filter(p => p.trim() !== '');
+			if (paragraphs.length <= 1) {
+				return escaped;
+			}
+			// Return first paragraph normally, additional paragraphs as sub-list items
+			const firstParagraph = paragraphs[0];
+			const additionalParagraphs = paragraphs.slice(1).map(p => `            - ${p}`).join('\n');
+			return firstParagraph + (additionalParagraphs ? '\n' + additionalParagraphs : '');
+		});
+
+		Handlebars.registerHelper('formatHighlightText', function (text: string) {
+			if (!text) return '';
+			// Escape hashtags to prevent them from being interpreted as Obsidian tags
+			let escaped = text.replace(/#/g, '\\#');
+			// Split by paragraphs (double newlines or single newlines) and create list items
+			const paragraphs = escaped.split(/\n+/).filter(p => p.trim() !== '');
+			if (paragraphs.length <= 1) {
+				return escaped;
+			}
+			// Return first paragraph normally, additional paragraphs as sub-list items
+			const firstParagraph = paragraphs[0];
+			const additionalParagraphs = paragraphs.slice(1).map(p => `        - ${p}`).join('\n');
+			return firstParagraph + (additionalParagraphs ? '\n' + additionalParagraphs : '');
+		});
+
 
 		// This adds a simple command that can be triggered anywhere
 		this.addCommand({
@@ -79,21 +110,26 @@ export default class RaindropSyncPlugin extends Plugin {
 			callback: () => this.sync()
 		});
 
+		// This adds a ribbon icon for quick access to sync
+		this.addRibbonIcon('refresh-cw', 'Sync Raindrop Bookmarks', (evt: MouseEvent) => {
+			this.sync();
+		});
+
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new RaindropSyncSettingTab(this.app, this));
-	}
+    }
 
-	onunload() {
+    onunload() {
 
-	}
+    }
 
-	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-	}
+    async loadSettings() {
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    }
 
-	async saveSettings() {
-		await this.saveData(this.settings);
-	}
+    async saveSettings() {
+        await this.saveData(this.settings);
+    }
 
 	async sync() {
 		if (!this.settings.collectionIds || this.settings.collectionIds.length === 0) {
@@ -410,12 +446,39 @@ class RaindropSyncSettingTab extends PluginSettingTab {
 
 		const templateSetting = new Setting(containerEl)
 			.setName('Bookmark Template')
-			.setDesc(this.createFragmentWithHTML(
-				`Handlebars template for each item. Available variables: <br>
-				<code>{{title}}</code>, <code>{{link}}</code>, <code>{{excerpt}}</code>, <code>{{note}}</code>, <code>{{created}}</code>, <code>{{tags}}</code>, <code>{{highlights}}</code> (array), <code>{{formatDate created}}</code>, <code>{{formatTags tags}}</code>, <code>{{getBaseUrl link}}</code>`
-			));
+			.setDesc('')
+			.setClass('raindrop-template-setting');
 		
-		const textArea = new TextAreaComponent(templateSetting.controlEl)
+		// Create custom layout with 50/50 split
+		const templateContainer = templateSetting.settingEl.createDiv({ cls: 'raindrop-template-container' });
+		
+		// Left side - Description
+		const descriptionDiv = templateContainer.createDiv({ cls: 'raindrop-template-description' });
+		descriptionDiv.innerHTML = `
+			<div class="setting-item-description">
+				<strong>Handlebars template for each bookmark item.</strong><br><br>
+				
+				<strong>Available Variables:</strong><br>
+				<code>{{title}}</code> - Bookmark title<br>
+				<code>{{link}}</code> - URL of the bookmark<br>
+				<code>{{excerpt}}</code> - Description/excerpt<br>
+				<code>{{note}}</code> - Personal note<br>
+				<code>{{created}}</code> - Creation date<br>
+				<code>{{tags}}</code> - Array of tags<br>
+				<code>{{highlights}}</code> - Array of highlights<br><br>
+				
+				<strong>Helper Functions:</strong><br>
+				<code>{{formatDate created}}</code> - Formats date as YYYY-MM-DD<br>
+				<code>{{formatTags tags}}</code> - Converts tags to #tag format<br>
+				<code>{{getBaseUrl link}}</code> - Extracts hostname from URL<br>
+				<code>{{formatText text}}</code> - Formats notes with paragraphs as sub-bullets<br>
+				<code>{{formatHighlightText text}}</code> - Formats highlights with paragraphs as sub-bullets
+			</div>
+		`;
+		
+		// Right side - Textarea
+		const textareaDiv = templateContainer.createDiv({ cls: 'raindrop-template-textarea' });
+		const textArea = new TextAreaComponent(textareaDiv)
 			.setPlaceholder('Enter your template')
 			.setValue(this.plugin.settings.template)
 			.onChange(async (value: string) => {
@@ -426,14 +489,19 @@ class RaindropSyncSettingTab extends PluginSettingTab {
 		textArea.inputEl.style.height = '200px';
 		textArea.inputEl.style.width = '100%';
 
-		templateSetting.addButton(button => button
-			.setButtonText('Reset to default')
-			.onClick(async () => {
-				this.plugin.settings.template = DEFAULT_SETTINGS.template;
-				await this.plugin.saveSettings();
-				this.display();
-			})
-		);
+		// Add reset button as new setting below
+		new Setting(containerEl)
+			.setName('')
+			.setDesc('')
+			.addButton(button => button
+				.setButtonText('Reset Template to Default')
+				.setCta()
+				.onClick(async () => {
+					this.plugin.settings.template = DEFAULT_SETTINGS.template;
+					await this.plugin.saveSettings();
+					this.display();
+				})
+			);
 	}
 
 	private createFragmentWithHTML(html: string) {
@@ -442,7 +510,7 @@ class RaindropSyncSettingTab extends PluginSettingTab {
 		descEl.innerHTML = html;
 		fragment.appendChild(descEl);
 		return fragment;
-	}
+    }
 }
 
 

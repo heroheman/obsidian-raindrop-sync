@@ -51,6 +51,42 @@
   margin-left: 8px;
 }
 
+/* Template Settings Layout */
+.raindrop-template-setting .setting-item-info {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.raindrop-template-container {
+  display: flex;
+  gap: 20px;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.raindrop-template-description {
+  flex: 1;
+  min-width: 0;
+}
+
+.raindrop-template-textarea {
+  flex: 1;
+  min-width: 0;
+}
+
+.raindrop-template-description .setting-item-description {
+  font-size: 0.9em;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.raindrop-template-description code {
+  background: var(--background-modifier-border);
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-size: 0.85em;
+}
+
 /* main.css */
 h2[data-v-f8994186] {
   color: lightcoral;
