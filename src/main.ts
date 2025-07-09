@@ -1,4 +1,4 @@
-import { Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { Notice, Plugin, PluginSettingTab, Setting, ToggleComponent } from 'obsidian';
 import { getCollections, getRaindrops, RaindropCollection } from './api';
 import * as Handlebars from 'handlebars';
 
@@ -22,16 +22,17 @@ const DEFAULT_SETTINGS: RaindropSyncSettings = {
     - Tags: {{formatTags tags}}
     {{/if}}
     {{#if note}}
-    - **Note**: {{{note}}}
+    - **Note**: 
+      {{{note}}}
     {{/if}}
     {{#if highlights.length}}
-    - **Highlights**
-    {{#each highlights}}
+    - **Highlights**:
+      {{#each highlights}}
         - {{{text}}}
-        {{#if note}}
+          {{#if note}}
             - *Note: {{{note}}}*
-        {{/if}}
-    {{/each}}
+          {{/if}}
+      {{/each}}
     {{/if}}`
 }
 
@@ -265,31 +266,43 @@ class RaindropSyncSettingTab extends PluginSettingTab {
 					const itemEl = parentEl.createEl('li');
 					const isExpanded = this.plugin.settings.expandedCollectionIds.includes(node.collection._id);
 
-					const setting = new Setting(itemEl);
-					setting.nameEl.empty();
-					setting.nameEl.addClass('raindrop-custom-name');
+					// Manually create the setting item structure
+					const settingItemEl = itemEl.createDiv({ cls: 'setting-item' });
+					const settingItemInfoEl = settingItemEl.createDiv({ cls: 'setting-item-info' });
+			
+					// Our custom name container
+					const nameEl = settingItemInfoEl.createDiv({ cls: 'setting-item-name raindrop-custom-name' });
 
 					// Arrow
+					const arrowEl = nameEl.createDiv({ cls: 'raindrop-arrow' });
 					if (node.children.length > 0) {
-						const arrowEl = setting.nameEl.createDiv({ cls: 'raindrop-arrow' });
 						arrowEl.setText(isExpanded ? '▼' : '►');
 					} else {
-						setting.nameEl.createDiv({ cls: 'raindrop-arrow-spacer' });
+						arrowEl.addClass('raindrop-arrow-spacer');
 					}
 
 					// Icon
 					if (node.collection.cover && node.collection.cover.length > 0) {
-						setting.nameEl.createEl('img', {
+						nameEl.createEl('img', {
 							attr: { src: node.collection.cover[0] },
 							cls: 'raindrop-icon'
 						});
 					}
 					
 					// Title
-					setting.nameEl.createSpan({ text: node.collection.title });
-					
-					// Toggle
-					setting.addToggle(toggle => toggle
+					nameEl.createSpan({ text: node.collection.title });
+
+					// Child count
+					if (node.children.length > 0) {
+						nameEl.createSpan({
+							text: `(${node.children.length})`,
+							cls: 'raindrop-child-count'
+						});
+					}
+
+					// Control element for the toggle
+					const controlEl = settingItemEl.createDiv({ cls: 'setting-item-control' });
+					new ToggleComponent(controlEl)
 						.setValue(this.plugin.settings.collectionIds.includes(node.collection._id))
 						.onChange(async (value) => {
 							const { collectionIds } = this.plugin.settings;
@@ -299,9 +312,8 @@ class RaindropSyncSettingTab extends PluginSettingTab {
 								this.plugin.settings.collectionIds = collectionIds.filter(id => id !== node.collection._id);
 							}
 							await this.plugin.saveSettings();
-						})
-					);
-					
+						});
+
 					// Children
 					let childrenEl: HTMLElement | null = null;
 					if (node.children.length > 0) {
@@ -315,7 +327,7 @@ class RaindropSyncSettingTab extends PluginSettingTab {
 					}
 
 					// Click handler for collapsing
-					setting.nameEl.onClickEvent(() => {
+					nameEl.onClickEvent(() => {
 						if (!childrenEl) return;
 						
 						const index = this.plugin.settings.expandedCollectionIds.indexOf(node.collection._id);
@@ -350,7 +362,18 @@ class RaindropSyncSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Bookmark Template')
-			.setDesc('Handlebars template for formatting each bookmark item.')
+			.setDesc(this.createFragmentWithHTML(
+				`Handlebars template for each item. Available variables: <br>
+				<code>{{title}}</code>, <code>{{link}}</code>, <code>{{excerpt}}</code>, <code>{{note}}</code>, <code>{{created}}</code>, <code>{{tags}}</code>, <code>{{highlights}}</code> (array), <code>{{formatDate created}}</code>, <code>{{formatTags tags}}</code>, <code>{{getBaseUrl link}}</code>`
+			))
+			.addButton(button => button
+				.setButtonText('Reset to default')
+				.onClick(async () => {
+					this.plugin.settings.template = DEFAULT_SETTINGS.template;
+					await this.plugin.saveSettings();
+					this.display();
+				})
+			)
 			.addTextArea(text => {
 				text
 					.setPlaceholder('Enter your template')
@@ -362,6 +385,14 @@ class RaindropSyncSettingTab extends PluginSettingTab {
 				text.inputEl.style.height = '200px';
 				text.inputEl.style.width = '100%';
 			});
+	}
+
+	private createFragmentWithHTML(html: string) {
+		const fragment = document.createDocumentFragment();
+		const descEl = document.createElement('div');
+		descEl.innerHTML = html;
+		fragment.appendChild(descEl);
+		return fragment;
 	}
 }
 
