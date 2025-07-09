@@ -8,6 +8,7 @@ export interface RaindropSyncSettings {
 	apiToken: string;
 	storageFolder: string;
 	collectionIds: number[];
+	expandedCollectionIds: number[];
 	template: string;
 }
 
@@ -15,6 +16,7 @@ const DEFAULT_SETTINGS: RaindropSyncSettings = {
 	apiToken: '',
 	storageFolder: 'Raindrop',
 	collectionIds: [],
+	expandedCollectionIds: [],
 	template: `- [{{title}}]({{link}}) *{{getBaseUrl link}}* - {{formatDate created}}
     {{#if tags.length}}
     - Tags: {{formatTags tags}}
@@ -93,71 +95,93 @@ export default class RaindropSyncPlugin extends Plugin {
 			new Notice('Syncing Raindrop bookmarks...');
 
 			const allApiCollections = await getCollections(this.settings);
-			const folder = this.settings.storageFolder;
 			
+			const nodes: Record<number, CollectionNode> = {};
+			allApiCollections.forEach(c => {
+				nodes[c._id] = { collection: c, children: [] };
+			});
+
+			const rootNodes: CollectionNode[] = [];
+			allApiCollections.forEach(c => {
+				const parentId = c.parent?.$id;
+				if (parentId && nodes[parentId]) {
+					nodes[parentId].children.push(nodes[c._id]);
+				} else {
+					rootNodes.push(nodes[c._id]);
+				}
+			});
+
+			const folder = this.settings.storageFolder;
 			if (!await this.app.vault.adapter.exists(folder)) {
 				await this.app.vault.createFolder(folder);
 			}
 
 			const template = Handlebars.compile(this.settings.template);
-
-			const processCollection = async (collection: RaindropCollection | { _id: number, title: string, parent?: any }) => {
-				try {
-					const raindrops = await getRaindrops(this.settings, collection._id);
-					if (!raindrops || raindrops.length === 0) {
-						return 0; // Skip empty collections
-					}
-
-					let content = '';
-					const sanitizedCollectionTitle = collection.title.replace(/[\\/:"*?<>|]/g, '');
-
-					if (collection._id > 0) {
-						const parent = allApiCollections.find(p => p._id === collection.parent?.$id);
-						const children = allApiCollections.filter(c => c.parent?.$id === collection._id);
-						const siblings = parent ? allApiCollections.filter(s => s.parent?.$id === parent._id && s._id !== collection._id) : [];
-
-						const sanitizeForLink = (title: string) => title.replace(/[\\/:"*?<>|]/g, '');
-
-						if (parent) content += `Parent: [[${sanitizeForLink(parent.title)}]]\n`;
-						if (siblings.length > 0) content += `Siblings: ${siblings.map(s => `[[${sanitizeForLink(s.title)}]]`).join(' ')}\n`;
-						if (children.length > 0) content += `Children: ${children.map(c => `[[${sanitizeForLink(c.title)}]]`).join(' ')}\n`;
-						if (content.length > 0) content += `\n---\n\n`;
-					}
-					
-					raindrops.forEach(raindrop => {
-						content += template(raindrop) + '\n';
-					});
-
-					const filePath = `${folder}/${sanitizedCollectionTitle}.md`;
-					await this.app.vault.adapter.write(filePath, content);
-					return 1;
-				} catch (error) {
-					console.error(`Failed to sync collection: ${collection.title}`, error);
-					new Notice(`Failed to sync collection: ${collection.title}`);
-					return 0;
+			
+			const getSelectedDescendants = (node: CollectionNode): CollectionNode[] => {
+				let descendants: CollectionNode[] = [];
+				if (this.settings.collectionIds.includes(node.collection._id)) {
+					descendants.push(node);
 				}
+				node.children.forEach(child => {
+					descendants = descendants.concat(getSelectedDescendants(child));
+				});
+				return descendants;
 			};
 
-			const allPossibleCollections = [
-				...allApiCollections,
-				{ _id: 0, title: 'Unsorted' }
-			];
+			for (const rootNode of rootNodes) {
+				const selectedInTree = getSelectedDescendants(rootNode);
+				if (selectedInTree.length === 0) continue;
 
-			const collectionsToSync = allPossibleCollections.filter(c => this.settings.collectionIds.includes(c._id));
+				let content = '';
+				let toc = '# Table of Contents\n';
+				
+				const processNode = async (node: CollectionNode, level: number): Promise<string> => {
+					let nodeContent = '';
+					if (!this.settings.collectionIds.includes(node.collection._id)) {
+						return '';
+					}
+					
+					const title = node.collection.title;
+					const sanitizedTitle = title.replace(/[\\/:"*?<>|]/g, '');
+					
+					toc += `${'  '.repeat(level-1)}- [[#${sanitizedTitle}]]\n`;
+					nodeContent += `${'#'.repeat(level)} ${sanitizedTitle}\n\n`;
 
-			if (collectionsToSync.length === 0) {
-				new Notice('No collections to sync.');
-				return;
+					const raindrops = await getRaindrops(this.settings, node.collection._id);
+					if (raindrops && raindrops.length > 0) {
+						const renderedRaindrops = raindrops.map(raindrop => template(raindrop).trim());
+						nodeContent += renderedRaindrops.join('\n') + '\n\n';
+					}
+
+					for (const child of node.children) {
+						nodeContent += await processNode(child, level + 1);
+					}
+
+					return nodeContent;
+				};
+				
+				content += await processNode(rootNode, 1);
+				
+				if (content) {
+					const finalContent = toc + '---\n\n' + content;
+					const fileName = `${rootNode.collection.title.replace(/[\\/:"*?<>|]/g, '')}.md`;
+					const filePath = `${folder}/${fileName}`;
+					await this.app.vault.adapter.write(filePath, finalContent);
+				}
 			}
-			
-			const results = await Promise.all(collectionsToSync.map(processCollection));
-			const syncedCount = results.reduce((sum, result) => sum + result, 0);
 
-			if (syncedCount > 0) {
-				new Notice(`Successfully synced ${syncedCount} collection(s).`);
-			} else {
-				new Notice('Sync complete, but no collections were updated.');
+			if (this.settings.collectionIds.includes(0)) {
+				let unsortedContent = `# Unsorted\n\n`;
+				const raindrops = await getRaindrops(this.settings, 0);
+				if (raindrops && raindrops.length > 0) {
+					const renderedRaindrops = raindrops.map(raindrop => template(raindrop).trim());
+					unsortedContent += renderedRaindrops.join('\n');
+				}
+				await this.app.vault.adapter.write(`${folder}/Unsorted.md`, unsortedContent);
 			}
+
+			new Notice(`Sync complete.`);
 
 		} catch (e) {
 			new Notice('A critical error occurred during sync. Check your settings and connection.');
@@ -199,9 +223,11 @@ class RaindropSyncSettingTab extends PluginSettingTab {
 
 			try {
 				const collections = await getCollections(this.plugin.settings);
+				const list = collectionContainer.createEl('ul', { cls: 'raindrop-collection-list' });
 
 				// --- UI for "Unsorted" ---
-				new Setting(collectionContainer)
+				const unsortedItem = list.createEl('li');
+				new Setting(unsortedItem)
 					.setName("Unsorted")
 					.setDesc("Bookmarks that aren't in any collection.")
 					.addToggle(toggle => toggle
@@ -236,30 +262,74 @@ class RaindropSyncSettingTab extends PluginSettingTab {
 
 				// --- Render Tree recursively ---
 				const renderNode = (node: CollectionNode, parentEl: HTMLElement) => {
-					const itemEl = parentEl.createDiv({ cls: 'raindrop-collection-item' });
-					
-					new Setting(itemEl)
-						.setName(node.collection.title)
-						.addToggle(toggle => toggle
-							.setValue(this.plugin.settings.collectionIds.includes(node.collection._id))
-							.onChange(async (value) => {
-								const { collectionIds } = this.plugin.settings;
-								if (value) {
-									if (!collectionIds.includes(node.collection._id)) collectionIds.push(node.collection._id);
-								} else {
-									this.plugin.settings.collectionIds = collectionIds.filter(id => id !== node.collection._id);
-								}
-								await this.plugin.saveSettings();
-							})
-						);
+					const itemEl = parentEl.createEl('li');
+					const isExpanded = this.plugin.settings.expandedCollectionIds.includes(node.collection._id);
 
+					const setting = new Setting(itemEl);
+					setting.nameEl.empty();
+					setting.nameEl.addClass('raindrop-custom-name');
+
+					// Arrow
 					if (node.children.length > 0) {
-						const childrenEl = itemEl.createDiv({ cls: 'raindrop-collection-children' });
-						node.children.forEach(child => renderNode(child, childrenEl));
+						const arrowEl = setting.nameEl.createDiv({ cls: 'raindrop-arrow' });
+						arrowEl.setText(isExpanded ? '▼' : '►');
+					} else {
+						setting.nameEl.createDiv({ cls: 'raindrop-arrow-spacer' });
 					}
+
+					// Icon
+					if (node.collection.cover && node.collection.cover.length > 0) {
+						setting.nameEl.createEl('img', {
+							attr: { src: node.collection.cover[0] },
+							cls: 'raindrop-icon'
+						});
+					}
+					
+					// Title
+					setting.nameEl.createSpan({ text: node.collection.title });
+					
+					// Toggle
+					setting.addToggle(toggle => toggle
+						.setValue(this.plugin.settings.collectionIds.includes(node.collection._id))
+						.onChange(async (value) => {
+							const { collectionIds } = this.plugin.settings;
+							if (value) {
+								if (!collectionIds.includes(node.collection._id)) collectionIds.push(node.collection._id);
+							} else {
+								this.plugin.settings.collectionIds = collectionIds.filter(id => id !== node.collection._id);
+							}
+							await this.plugin.saveSettings();
+						})
+					);
+					
+					// Children
+					let childrenEl: HTMLElement | null = null;
+					if (node.children.length > 0) {
+						childrenEl = itemEl.createEl('ul');
+						if (!isExpanded) {
+							childrenEl.style.display = 'none';
+						}
+						node.children
+							.sort((a,b) => a.collection.title.localeCompare(b.collection.title))
+							.forEach(child => renderNode(child, childrenEl));
+					}
+
+					// Click handler for collapsing
+					setting.nameEl.onClickEvent(() => {
+						if (!childrenEl) return;
+						
+						const index = this.plugin.settings.expandedCollectionIds.indexOf(node.collection._id);
+						if (index > -1) {
+							this.plugin.settings.expandedCollectionIds.splice(index, 1);
+						} else {
+							this.plugin.settings.expandedCollectionIds.push(node.collection._id);
+						}
+						this.plugin.saveSettings();
+						this.display(); // Re-render to show changes
+					});
 				};
 				
-				rootNodes.forEach(node => renderNode(node, collectionContainer));
+				rootNodes.sort((a,b) => a.collection.title.localeCompare(b.collection.title)).forEach(node => renderNode(node, list));
 				
 			} catch (e) {
 				new Notice('Failed to fetch Raindrop collections. Check your API token.');

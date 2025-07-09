@@ -9,6 +9,7 @@ export interface RaindropCollection {
     parent?: {
         $id: number;
     };
+    cover?: string[];
 }
 
 export interface RaindropHighlight {
@@ -34,22 +35,33 @@ export const getCollections = async (settings: RaindropSyncSettings): Promise<Ra
         throw new Error('Raindrop API token is not set.');
     }
 
-    const response = await requestUrl({
-        url: `${API_BASE_URL}/collections`,
-        method: 'GET',
-        headers: {
-            'Authorization': `Bearer ${settings.apiToken}`
-        }
+    const [rootResponse, childrenResponse] = await Promise.all([
+        requestUrl({
+            url: `${API_BASE_URL}/collections`,
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${settings.apiToken}` }
+        }),
+        requestUrl({
+            url: `${API_BASE_URL}/collections/childrens`,
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${settings.apiToken}` }
+        })
+    ]);
+
+    if (rootResponse.status !== 200 || childrenResponse.status !== 200) {
+        throw new Error(`Failed to fetch collections: Root Status ${rootResponse.status}, Children Status ${childrenResponse.status}`);
+    }
+    
+    const rootItems = rootResponse.json.items || [];
+    const childrenItems = childrenResponse.json.items || [];
+
+    const allItems = [...rootItems, ...childrenItems];
+    const collectionMap = new Map<number, RaindropCollection>();
+    allItems.forEach(item => {
+        collectionMap.set(item._id, item);
     });
 
-    if (response.status === 200) {
-        const data = response.json;
-        if (data.items) {
-            return data.items;
-        }
-    }
-
-    throw new Error(`Failed to fetch collections: ${response.status}`);
+    return Array.from(collectionMap.values());
 };
 
 export const getRaindrops = async (settings: RaindropSyncSettings, collectionId: number): Promise<RaindropItem[]> => {
