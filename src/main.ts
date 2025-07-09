@@ -1,4 +1,11 @@
-import { Notice, Plugin, PluginSettingTab, Setting, ToggleComponent } from 'obsidian';
+import {
+	Notice,
+	Plugin,
+	PluginSettingTab,
+	Setting,
+	ToggleComponent,
+	TextAreaComponent,
+} from 'obsidian';
 import { getCollections, getRaindrops, RaindropCollection } from './api';
 import * as Handlebars from 'handlebars';
 
@@ -9,6 +16,7 @@ export interface RaindropSyncSettings {
 	storageFolder: string;
 	collectionIds: number[];
 	expandedCollectionIds: number[];
+	cascadeSelection: boolean;
 	template: string;
 }
 
@@ -17,6 +25,7 @@ const DEFAULT_SETTINGS: RaindropSyncSettings = {
 	storageFolder: 'Raindrop',
 	collectionIds: [],
 	expandedCollectionIds: [],
+	cascadeSelection: true,
 	template: `- [{{title}}]({{link}}) *{{getBaseUrl link}}* - {{formatDate created}}
     {{#if tags.length}}
     - Tags: {{formatTags tags}}
@@ -217,9 +226,16 @@ class RaindropSyncSettingTab extends PluginSettingTab {
 
 		if (this.plugin.settings.apiToken) {
 			new Setting(containerEl)
-				.setName('Collections to Sync')
-				.setDesc('Select the collections you want to sync.');
-			
+				.setName('Cascade selection')
+				.setDesc('Automatically select/deselect parent and child collections.')
+				.addToggle(toggle => toggle
+					.setValue(this.plugin.settings.cascadeSelection)
+					.onChange(async (value) => {
+						this.plugin.settings.cascadeSelection = value;
+						await this.plugin.saveSettings();
+					}));
+
+
 			const collectionContainer = containerEl.createDiv('raindrop-collection-container');
 
 			try {
@@ -244,10 +260,14 @@ class RaindropSyncSettingTab extends PluginSettingTab {
 						}));
 
 
-				// --- Build Tree from flat list ---
+				// --- Build Tree and helper maps ---
 				const nodes: Record<number, CollectionNode> = {};
+				const childToParentMap: Record<number, number> = {};
 				collections.forEach(c => {
 					nodes[c._id] = { collection: c, children: [] };
+					if (c.parent?.$id) {
+						childToParentMap[c._id] = c.parent.$id;
+					}
 				});
 
 				const rootNodes: CollectionNode[] = [];
@@ -305,13 +325,41 @@ class RaindropSyncSettingTab extends PluginSettingTab {
 					new ToggleComponent(controlEl)
 						.setValue(this.plugin.settings.collectionIds.includes(node.collection._id))
 						.onChange(async (value) => {
-							const { collectionIds } = this.plugin.settings;
-							if (value) {
-								if (!collectionIds.includes(node.collection._id)) collectionIds.push(node.collection._id);
+							const { collectionIds, cascadeSelection, expandedCollectionIds } = this.plugin.settings;
+							const nodeId = node.collection._id;
+
+							if (cascadeSelection) {
+								// Downward cascade
+								if (!value) {
+									const descendantIds = (function getDescendants(n: CollectionNode): number[] {
+										let ids = [n.collection._id];
+										n.children.forEach(child => ids = ids.concat(getDescendants(child)));
+										return ids;
+									})(node);
+									this.plugin.settings.collectionIds = collectionIds.filter(id => !descendantIds.includes(id));
+								} else {
+								// Upward cascade & auto-expand
+									if (!collectionIds.includes(nodeId)) collectionIds.push(nodeId);
+									let currentId = nodeId;
+									while (childToParentMap[currentId]) {
+										currentId = childToParentMap[currentId];
+										if (!collectionIds.includes(currentId)) collectionIds.push(currentId);
+									}
+									if (node.children.length > 0 && !expandedCollectionIds.includes(nodeId)) {
+										expandedCollectionIds.push(nodeId);
+									}
+								}
 							} else {
-								this.plugin.settings.collectionIds = collectionIds.filter(id => id !== node.collection._id);
+								// Original non-cascade behavior
+								if (value) {
+									if (!collectionIds.includes(nodeId)) collectionIds.push(nodeId);
+								} else {
+									this.plugin.settings.collectionIds = collectionIds.filter(id => id !== nodeId);
+								}
 							}
+							
 							await this.plugin.saveSettings();
+							this.display(); // Re-render to show all changes
 						});
 
 					// Children
@@ -360,31 +408,32 @@ class RaindropSyncSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
-		new Setting(containerEl)
+		const templateSetting = new Setting(containerEl)
 			.setName('Bookmark Template')
 			.setDesc(this.createFragmentWithHTML(
 				`Handlebars template for each item. Available variables: <br>
 				<code>{{title}}</code>, <code>{{link}}</code>, <code>{{excerpt}}</code>, <code>{{note}}</code>, <code>{{created}}</code>, <code>{{tags}}</code>, <code>{{highlights}}</code> (array), <code>{{formatDate created}}</code>, <code>{{formatTags tags}}</code>, <code>{{getBaseUrl link}}</code>`
-			))
-			.addButton(button => button
-				.setButtonText('Reset to default')
-				.onClick(async () => {
-					this.plugin.settings.template = DEFAULT_SETTINGS.template;
-					await this.plugin.saveSettings();
-					this.display();
-				})
-			)
-			.addTextArea(text => {
-				text
-					.setPlaceholder('Enter your template')
-					.setValue(this.plugin.settings.template)
-					.onChange(async (value) => {
-						this.plugin.settings.template = value;
-						await this.plugin.saveSettings();
-					});
-				text.inputEl.style.height = '200px';
-				text.inputEl.style.width = '100%';
+			));
+		
+		const textArea = new TextAreaComponent(templateSetting.controlEl)
+			.setPlaceholder('Enter your template')
+			.setValue(this.plugin.settings.template)
+			.onChange(async (value: string) => {
+				this.plugin.settings.template = value;
+				await this.plugin.saveSettings();
 			});
+
+		textArea.inputEl.style.height = '200px';
+		textArea.inputEl.style.width = '100%';
+
+		templateSetting.addButton(button => button
+			.setButtonText('Reset to default')
+			.onClick(async () => {
+				this.plugin.settings.template = DEFAULT_SETTINGS.template;
+				await this.plugin.saveSettings();
+				this.display();
+			})
+		);
 	}
 
 	private createFragmentWithHTML(html: string) {
