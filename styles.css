@@ -94,6 +94,9 @@ input:checked + .slider[data-v-36f883ab]:before {
   border-bottom: 1px solid var(--background-modifier-border);
   padding-bottom: 10px;
 }
+.setting-item[data-v-05e49569]:last-child {
+  border-bottom: none;
+}
 .setting-item-info[data-v-05e49569] {
   flex-grow: 1;
 }
@@ -174,7 +177,8 @@ h3[data-v-05e49569] {
 }
 textarea[data-v-05e49569] {
   width: 100%;
-  height: 200px;
+  min-height: 200px;
+  margin-bottom: 10px;
   font-family: monospace;
   background-color: var(--background-secondary);
   color: var(--text-normal);
@@ -184,6 +188,24 @@ textarea[data-v-05e49569] {
 }
 a[data-v-05e49569] {
   color: var(--text-accent);
+}
+.view-switcher[data-v-05e49569] {
+  display: flex;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding-bottom: 10px;
+}
+.view-switcher button[data-v-05e49569] {
+  flex-grow: 1;
+  padding: 10px;
+  cursor: pointer;
+  background-color: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+}
+.view-switcher button.active[data-v-05e49569] {
+  border-bottom-color: var(--interactive-accent);
+  color: var(--text-normal);
 }
 
 /* src/main.css */

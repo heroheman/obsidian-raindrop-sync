@@ -16,16 +16,6 @@
 
     <div class="setting-item">
       <div class="setting-item-info">
-        <div class="setting-item-name">Storage Folder</div>
-        <div class="setting-item-description">The folder where your Raindrop bookmarks will be stored.</div>
-      </div>
-      <div class="setting-item-control">
-        <input type="text" v-model="localSettings.storageFolder" @input="updateSettings" placeholder="e.g., Raindrop">
-      </div>
-    </div>
-
-    <div class="setting-item">
-      <div class="setting-item-info">
         <div class="setting-item-name">Cascading Selection</div>
         <div class="setting-item-description">Automatically select/deselect child collections when a parent is selected/deselected.</div>
       </div>
@@ -65,16 +55,115 @@
       </div>
     </div>
 
-    <h3>Content Template</h3>
-    <div class="setting-item">
-      <div class="setting-item-info">
-          <div class="setting-item-name">Bookmark Template</div>
-          <div class="setting-item-description">Define the template for each bookmark using Handlebars. See plugin documentation for available variables and helpers.</div>
+    <div class="view-switcher">
+      <button :class="{ active: settingsView === 'list' }" @click="settingsView = 'list'">List View</button>
+      <button :class="{ active: settingsView === 'file' }" @click="settingsView = 'file'">File View</button>
+    </div>
+
+    <div v-if="settingsView === 'list'">
+      <h3>List View Settings</h3>
+      <div class="setting-item">
+        <div class="setting-item-info">
+          <div class="setting-item-name">Storage Folder</div>
+          <div class="setting-item-description">The folder where your Raindrop bookmarks file will be stored.</div>
+        </div>
+        <div class="setting-item-control">
+          <input type="text" v-model="localSettings.storageFolder" @input="updateSettings" placeholder="e.g., Raindrop">
+        </div>
+      </div>
+      <div class="setting-item">
+        <div class="setting-item-info">
+            <div class="setting-item-name">Content Template</div>
+            <div class="setting-item-description">Define the template for each bookmark using Handlebars.</div>
+        </div>
+      </div>
+      <textarea v-model="localSettings.template" @input="updateSettings"></textarea>
+      <div class="setting-item-control template-actions">
+          <button @click="emit('reset-template')">Reset to Default</button>
       </div>
     </div>
-    <textarea v-model="localSettings.template" @input="updateSettings"></textarea>
-    <div class="setting-item-control template-actions">
-        <button @click="emit('reset-template')">Reset to Default</button>
+
+    <div v-if="settingsView === 'file'">
+      <h3>File View Settings</h3>
+      <div class="setting-item">
+        <div class="setting-item-info">
+          <div class="setting-item-name">Items Storage Folder</div>
+          <div class="setting-item-description">The root folder where your individual bookmark files will be stored.</div>
+        </div>
+        <div class="setting-item-control">
+          <input type="text" v-model="localSettings.fileViewStorageFolder" @input="updateSettings" placeholder="e.g., Raindrop/Items">
+        </div>
+      </div>
+      <div class="setting-item">
+        <div class="setting-item-info">
+          <div class="setting-item-name">Index File Folder</div>
+          <div class="setting-item-description">The folder where your Dataview index files will be stored.</div>
+        </div>
+        <div class="setting-item-control">
+          <input type="text" v-model="localSettings.fileViewIndexFolder" @input="updateSettings" placeholder="e.g., Raindrop/Index">
+        </div>
+      </div>
+
+      <h4>Dataview Columns</h4>
+      <div class="setting-item">
+        <div class="setting-item-info">
+          <div class="setting-item-name">Show Cover</div>
+          <div class="setting-item-description">Display the cover image in the Dataview table.</div>
+        </div>
+        <div class="setting-item-control">
+          <label class="switch">
+            <input type="checkbox" v-model="localSettings.fileViewDataviewColumns.cover" @change="updateSettings">
+            <span class="slider round"></span>
+          </label>
+        </div>
+      </div>
+      <div class="setting-item">
+        <div class="setting-item-info">
+          <div class="setting-item-name">Show Tags</div>
+          <div class="setting-item-description">Display tags in the Dataview table.</div>
+        </div>
+        <div class="setting-item-control">
+          <label class="switch">
+            <input type="checkbox" v-model="localSettings.fileViewDataviewColumns.tags" @change="updateSettings">
+            <span class="slider round"></span>
+          </label>
+        </div>
+      </div>
+      <div class="setting-item">
+        <div class="setting-item-info">
+          <div class="setting-item-name">Show Highlights</div>
+          <div class="setting-item-description">Display a checkmark if highlights exist.</div>
+        </div>
+        <div class="setting-item-control">
+          <label class="switch">
+            <input type="checkbox" v-model="localSettings.fileViewDataviewColumns.highlights" @change="updateSettings">
+            <span class="slider round"></span>
+          </label>
+        </div>
+      </div>
+      <div class="setting-item">
+        <div class="setting-item-info">
+          <div class="setting-item-name">Show Notes</div>
+          <div class="setting-item-description">Display a checkmark if notes exist.</div>
+        </div>
+        <div class="setting-item-control">
+          <label class="switch">
+            <input type="checkbox" v-model="localSettings.fileViewDataviewColumns.notes" @change="updateSettings">
+            <span class="slider round"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="setting-item">
+        <div class="setting-item-info">
+            <div class="setting-item-name">Bookmark File Template</div>
+            <div class="setting-item-description">Define the template for individual bookmark files. Use YAML frontmatter for Dataview fields.</div>
+        </div>
+      </div>
+      <textarea v-model="localSettings.fileViewTemplate" @input="updateSettings"></textarea>
+      <div class="setting-item-control template-actions">
+          <button @click="emit('reset-file-template')">Reset to Default</button>
+      </div>
     </div>
   </div>
 </template>
@@ -92,13 +181,14 @@ const props = defineProps<{
 }>();
 
 // Define events that the component can emit
-const emit = defineEmits(['update-settings', 'reset-template']);
+const emit = defineEmits(['update-settings', 'reset-template', 'reset-file-template']);
 
 // Create a local reactive copy of the settings
 const localSettings = ref({ ...props.settings });
 const isLoading = ref(false);
 const error = ref<string | null>(null);
 const collections = ref<RaindropCollection[]>([]);
+const settingsView = ref<'list' | 'file'>('list');
 
 const collectionTree = computed((): CollectionNodeType[] => {
   const nodes: Record<number, CollectionNodeType> = {};
@@ -211,6 +301,9 @@ onMounted(() => {
   border-bottom: 1px solid var(--background-modifier-border);
   padding-bottom: 10px;
 }
+.setting-item:last-child {
+  border-bottom: none;
+}
 .setting-item-info {
   flex-grow: 1;
 }
@@ -306,7 +399,8 @@ h3 {
 }
 textarea {
     width: 100%;
-    height: 200px;
+    min-height: 200px;
+    margin-bottom: 10px;
     font-family: monospace;
     background-color: var(--background-secondary);
     color: var(--text-normal);
@@ -316,5 +410,23 @@ textarea {
 }
 a {
     color: var(--text-accent);
+}
+.view-switcher {
+  display: flex;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding-bottom: 10px;
+}
+.view-switcher button {
+  flex-grow: 1;
+  padding: 10px;
+  cursor: pointer;
+  background-color: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+}
+.view-switcher button.active {
+  border-bottom-color: var(--interactive-accent);
+  color: var(--text-normal);
 }
 </style> 

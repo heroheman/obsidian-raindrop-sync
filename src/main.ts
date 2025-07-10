@@ -16,15 +16,32 @@ import Settings from "./components/Settings.vue";
 export interface RaindropSyncSettings {
 	apiToken: string;
 	storageFolder: string;
+	fileViewStorageFolder: string;
+	fileViewIndexFolder: string;
+	fileViewDataviewColumns: {
+		cover: boolean;
+		tags: boolean;
+		highlights: boolean;
+		notes: boolean;
+	};
 	collectionIds: number[];
 	expandedCollectionIds: number[];
 	cascadeSelection: boolean;
 	template: string;
+	fileViewTemplate: string;
 }
 
 const DEFAULT_SETTINGS: RaindropSyncSettings = {
 	apiToken: '',
 	storageFolder: 'Raindrop',
+	fileViewStorageFolder: 'Raindrop/Items',
+	fileViewIndexFolder: 'Raindrop/Index',
+	fileViewDataviewColumns: {
+		cover: true,
+		tags: true,
+		highlights: true,
+		notes: true,
+	},
 	collectionIds: [],
 	expandedCollectionIds: [],
 	cascadeSelection: true,
@@ -45,7 +62,35 @@ const DEFAULT_SETTINGS: RaindropSyncSettings = {
 			    - {{formatText note}}*
           {{/if}}
       {{/each}}
-    {{/if}}`
+    {{/if}}`,
+	fileViewTemplate: `---
+title: "{{title}}"
+url: "{{link}}"
+tags: [{{#each tags}}"{{this}}"{{#unless @last}}, {{/unless}}{{/each}}]
+cover: "{{cover}}"
+hasHighlights: {{#if highlights.length}}true{{else}}false{{/if}}
+hasNotes: {{#if note}}true{{else}}false{{/if}}
+---
+
+# {{title}}
+
+[{{title}}]({{link}})
+
+{{#if note}}
+## Note
+{{formatText note}}
+{{/if}}
+
+{{#if highlights.length}}
+## Highlights
+{{#each highlights}}
+- {{formatHighlightText text}}
+  {{#if note}}
+    - *Note*: {{formatText note}}
+  {{/if}}
+{{/each}}
+{{/if}}
+`,
 }
 
 export default class RaindropSyncPlugin extends Plugin {
@@ -107,14 +152,28 @@ export default class RaindropSyncPlugin extends Plugin {
 
 		// This adds a simple command that can be triggered anywhere
 		this.addCommand({
-			id: 'sync-raindrop-bookmarks',
-			name: 'Sync Raindrop Bookmarks',
-			callback: () => this.sync()
+			id: 'sync-raindrop-bookmarks-list-view',
+			name: 'Sync Bookmarks (List View)',
+			callback: () => this.syncListView()
+		});
+
+		this.addCommand({
+			id: 'sync-raindrop-bookmarks-file-view',
+			name: 'Sync Bookmarks (File View)',
+			callback: () => this.syncFileView()
+		});
+
+		this.addCommand({
+			id: 'regenerate-raindrop-file-view-index',
+			name: 'Regenerate File View Index',
+			callback: () => this.generateFileViewIndex()
 		});
 
 		// This adds a ribbon icon for quick access to sync
 		this.addRibbonIcon('refresh-cw', 'Sync Raindrop Bookmarks', (evt: MouseEvent) => {
-			this.sync();
+			// For now, the ribbon will trigger the list view sync.
+			// Later, this could open a dialog to choose.
+			this.syncListView();
 		});
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
@@ -127,13 +186,25 @@ export default class RaindropSyncPlugin extends Plugin {
 
     async loadSettings() {
         this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		// Ensure nested objects are properly defaulted for users with older settings
+		this.settings.fileViewDataviewColumns = Object.assign(
+			{},
+			DEFAULT_SETTINGS.fileViewDataviewColumns,
+			this.settings.fileViewDataviewColumns
+		);
     }
 
     async saveSettings() {
         await this.saveData(this.settings);
+		// Ensure nested objects are properly defaulted for users with older settings
+		this.settings.fileViewDataviewColumns = Object.assign(
+			{},
+			DEFAULT_SETTINGS.fileViewDataviewColumns,
+			this.settings.fileViewDataviewColumns
+		);
     }
 
-	async sync() {
+	async syncListView() {
 		if (!this.settings.collectionIds || this.settings.collectionIds.length === 0) {
 			new Notice('No collections selected to sync.');
 			return;
@@ -236,6 +307,212 @@ export default class RaindropSyncPlugin extends Plugin {
 			console.error(e);
 		}
 	}
+
+	async syncFileView() {
+		if (!this.settings.collectionIds || this.settings.collectionIds.length === 0) {
+			new Notice('No collections selected to sync.');
+			return;
+		}
+		
+		try {
+			new Notice('Syncing Raindrop bookmark files...');
+
+			const allApiCollections = await getCollections(this.settings);
+			const template = Handlebars.compile(this.settings.fileViewTemplate);
+			const fileViewFolder = this.settings.fileViewStorageFolder;
+			const sanitize = (name: string) => {
+				const sanitized = name.replace(/[\\/:"*?<>|]/g, '-').replace(/ /g, '_');
+				return sanitized.substring(0, 80);
+			};
+
+			if (!await this.app.vault.adapter.exists(fileViewFolder)) {
+				await this.app.vault.createFolder(fileViewFolder);
+			}
+			
+			const selectedCollections = allApiCollections.filter(c => this.settings.collectionIds.includes(c._id));
+
+			for (const collection of selectedCollections) {
+				const collectionFolder = `${fileViewFolder}/${sanitize(collection.title)}`;
+				if (!await this.app.vault.adapter.exists(collectionFolder)) {
+					await this.app.vault.createFolder(collectionFolder);
+				}
+
+				const raindrops = await getRaindrops(this.settings, collection._id);
+				for (const raindrop of raindrops) {
+					const renderedContent = template(raindrop);
+					const fileName = `${sanitize(raindrop.title)}.md`;
+					const filePath = `${collectionFolder}/${fileName}`;
+					await this.app.vault.adapter.write(filePath, renderedContent);
+				}
+			}
+
+			// Handle "Unsorted" files creation separately
+			if (this.settings.collectionIds.includes(0)) {
+				const unsortedFolder = `${fileViewFolder}/Unsorted`;
+				if (!await this.app.vault.adapter.exists(unsortedFolder)) {
+					await this.app.vault.createFolder(unsortedFolder);
+				}
+
+				const raindrops = await getRaindrops(this.settings, 0);
+				for (const raindrop of raindrops) {
+					const renderedContent = template(raindrop);
+					const fileName = `${sanitize(raindrop.title)}.md`;
+					const filePath = `${unsortedFolder}/${fileName}`;
+					await this.app.vault.adapter.write(filePath, renderedContent);
+				}
+			}
+
+			// After creating all files, regenerate the index
+			await this.generateFileViewIndex();
+			
+			new Notice('Sync complete (File View).');
+
+		} catch (e) {
+			new Notice('A critical error occurred during file sync. Check your settings and connection.');
+			console.error(e);
+		}
+	}
+
+	async generateFileViewIndex() {
+		if (!this.settings.collectionIds || this.settings.collectionIds.length === 0) {
+			new Notice('No collections selected for index.');
+			return;
+		}
+
+		try {
+			new Notice('Generating Raindrop file view index...');
+
+			const allApiCollections = await getCollections(this.settings);
+			
+			const nodes: Record<number, CollectionNode> = {};
+			allApiCollections.forEach(c => {
+				nodes[c._id] = { collection: c, children: [] };
+			});
+
+			const rootNodes: CollectionNode[] = [];
+			allApiCollections.forEach(c => {
+				const parentId = c.parent?.$id;
+				if (parentId && nodes[parentId]) {
+					nodes[parentId].children.push(nodes[c._id]);
+				} else {
+					rootNodes.push(nodes[c._id]);
+				}
+			});
+
+			const sanitize = (name: string) => {
+				const sanitized = name.replace(/[\\/:"*?<>|]/g, '-').replace(/ /g, '_');
+				return sanitized.substring(0, 80);
+			};
+
+			const fileViewFolder = this.settings.fileViewStorageFolder;
+			const indexFolder = this.settings.fileViewIndexFolder;
+			if (!await this.app.vault.adapter.exists(indexFolder)) {
+				await this.app.vault.createFolder(indexFolder);
+			}
+
+			const processNode = async (node: CollectionNode, level: number): Promise<[string, string]> => {
+				let toc = '';
+				let content = '';
+
+				if (!this.settings.collectionIds.includes(node.collection._id)) {
+					return ['', ''];
+				}
+				
+				const title = node.collection.title;
+				const sanitizedTitle = sanitize(title);
+				
+				toc += `${'  '.repeat(level-1)}- [[#${sanitizedTitle}]]\n`;
+				content += `${'#'.repeat(level)} ${sanitizedTitle}\n\n`;
+
+				const fromClause = `"${fileViewFolder}/${sanitize(node.collection.title)}"`;
+				
+				const dvSettings = this.settings.fileViewDataviewColumns;
+				const columns = [];
+				if (dvSettings.cover) {
+					columns.push(`choice(length(cover) > 0, "<img src='" + cover + "' width='60'>", "") as "Cover"`);
+				}
+				columns.push('elink(url, title) as "Title"');
+				if (dvSettings.tags) {
+					columns.push('tags as "Tags"');
+				}
+				if (dvSettings.highlights) {
+					columns.push('choice(hasHighlights, "✅", "❌") as "Highlights"');
+				}
+				if (dvSettings.notes) {
+					columns.push('choice(hasNotes, "✅", "❌") as "Notes"');
+				}
+				columns.push('link(file.path, "show") as "Detail"');
+				const tableCols = columns.join(',\n    ');
+
+				content += `
+\`\`\`dataview
+TABLE WITHOUT ID
+    ${tableCols}
+FROM ${fromClause}
+SORT file.ctime DESC
+\`\`\`
+\n`;
+
+				for (const child of node.children) {
+					const [childToc, childContent] = await processNode(child, level + 1);
+					toc += childToc;
+					content += childContent;
+				}
+
+				return [toc, content];
+			};
+
+			for (const rootNode of rootNodes) {
+				const [toc, content] = await processNode(rootNode, 1);
+				
+				if (content) {
+					const finalContent = '# Table of Contents\n' + toc + '---\n\n' + content;
+					const fileName = `${sanitize(rootNode.collection.title)}.md`;
+					const filePath = `${indexFolder}/${fileName}`;
+					await this.app.vault.adapter.write(filePath, finalContent);
+				}
+			}
+
+			// Handle "Unsorted" collection
+			if (this.settings.collectionIds.includes(0)) {
+				const unsortedFolder = `${fileViewFolder}/Unsorted`;
+				
+				const dvSettings = this.settings.fileViewDataviewColumns;
+				const columns = [];
+				if (dvSettings.cover) {
+					columns.push(`choice(length(cover) > 0, "<img src='" + cover + "' width='60'>", "") as "Cover"`);
+				}
+				columns.push('elink(url, title) as "Title"');
+				if (dvSettings.tags) {
+					columns.push('tags as "Tags"');
+				}
+				if (dvSettings.highlights) {
+					columns.push('choice(hasHighlights, "✅", "❌") as "Highlights"');
+				}
+				if (dvSettings.notes) {
+					columns.push('choice(hasNotes, "✅", "❌") as "Notes"');
+				}
+				columns.push('link(file.path, "show") as "Detail"');
+				const tableCols = columns.join(',\n    ');
+
+				const dataviewContent = `
+\`\`\`dataview
+TABLE WITHOUT ID
+    ${tableCols}
+FROM "${unsortedFolder}"
+SORT file.ctime DESC
+\`\`\`
+`;
+				const filePath = `${indexFolder}/Unsorted.md`;
+				await this.app.vault.adapter.write(filePath, dataviewContent.trim());
+			}
+
+			new Notice('File view index regenerated.');
+		} catch (e) {
+			new Notice('A critical error occurred during index generation. Check your settings and connection.');
+			console.error(e);
+		}
+	}
 }
 
 interface CollectionNode {
@@ -248,7 +525,7 @@ class RaindropSyncSettingTab extends PluginSettingTab {
 	vueApp: VueApp;
 
 	display(): void {
-		const {containerEl} = this;
+		const { containerEl } = this;
 		containerEl.empty();
 
 		const onSettingsUpdate = (newSettings: RaindropSyncSettings) => {
@@ -259,12 +536,20 @@ class RaindropSyncSettingTab extends PluginSettingTab {
 		const onTemplateReset = () => {
 			this.plugin.settings.template = DEFAULT_SETTINGS.template;
 			this.plugin.saveSettings();
-		}
+			this.display(); // Re-render the settings tab
+		};
+
+		const onFileTemplateReset = () => {
+			this.plugin.settings.fileViewTemplate = DEFAULT_SETTINGS.fileViewTemplate;
+			this.plugin.saveSettings();
+			this.display(); // Re-render the settings tab
+		};
 
 		this.vueApp = createApp(Settings, {
 			settings: this.plugin.settings,
-			'onUpdate-settings': onSettingsUpdate,
-			'onReset-template': onTemplateReset,
+			onUpdateSettings: onSettingsUpdate,
+			onResetTemplate: onTemplateReset,
+			onResetFileTemplate: onFileTemplateReset,
 		});
 
 		this.vueApp.mount(containerEl);
@@ -276,5 +561,3 @@ class RaindropSyncSettingTab extends PluginSettingTab {
 		}
 	}
 }
-
-
