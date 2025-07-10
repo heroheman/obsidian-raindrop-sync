@@ -60,6 +60,15 @@
       <button :class="{ active: settingsView === 'file' }" @click="settingsView = 'file'">File View</button>
     </div>
 
+    <div class="view-description">
+      <div v-if="settingsView === 'list'">
+        Generates a single Markdown file for each root collection, listing all selected bookmarks hierarchically. This is useful for a simple, readable list.
+      </div>
+      <div v-if="settingsView === 'file'">
+        Creates an individual Markdown file for each bookmark and generates index files with Dataview tables to navigate them. This is powerful for querying and organization.
+      </div>
+    </div>
+
     <div v-if="settingsView === 'list'">
       <h3>List View Settings</h3>
       <div class="setting-item">
@@ -76,6 +85,12 @@
             <div class="setting-item-name">Content Template</div>
             <div class="setting-item-description">Define the template for each bookmark using Handlebars.</div>
         </div>
+      </div>
+      <div class="setting-item-description template-help">
+        <b>Available variables:</b><br>
+        <code>_id, title, link, excerpt, note, cover, tags, highlights, created, lastUpdate, type, domain</code><br>
+        <b>Available helpers:</b><br>
+        <code>formatDate, formatTags, getBaseUrl, formatText, formatHighlightText</code>
       </div>
       <textarea v-model="localSettings.template" @input="updateSettings"></textarea>
       <div class="setting-item-control template-actions">
@@ -153,12 +168,34 @@
           </label>
         </div>
       </div>
+      <div class="setting-item">
+        <div class="setting-item-info">
+          <div class="setting-item-name">Show Type</div>
+          <div class="setting-item-description">Display the bookmark type (e.g., article, video).</div>
+        </div>
+        <div class="setting-item-control">
+          <label class="switch">
+            <input type="checkbox" v-model="localSettings.fileViewDataviewColumns.type" @change="updateSettings">
+            <span class="slider round"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="setting-item-description rebuild-hint">
+        Note: Run the "Regenerate File View Index" command for column changes to apply.
+      </div>
 
       <div class="setting-item">
         <div class="setting-item-info">
             <div class="setting-item-name">Bookmark File Template</div>
             <div class="setting-item-description">Define the template for individual bookmark files. Use YAML frontmatter for Dataview fields.</div>
         </div>
+      </div>
+      <div class="setting-item-description template-help">
+        <b>Available variables:</b><br>
+        <code>_id, title, link, excerpt, note, cover, tags, highlights, created, lastUpdate, type, domain, collection, collectionPath</code><br>
+        <b>Available helpers:</b><br>
+        <code>formatDate, formatTags, getBaseUrl, formatText, formatHighlightText</code>
       </div>
       <textarea v-model="localSettings.fileViewTemplate" @input="updateSettings"></textarea>
       <div class="setting-item-control template-actions">
@@ -428,5 +465,33 @@ a {
 .view-switcher button.active {
   border-bottom-color: var(--interactive-accent);
   color: var(--text-normal);
+}
+.view-description {
+  font-size: 0.9em;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+  padding: 10px;
+  background-color: var(--background-secondary);
+  border-radius: 5px;
+}
+.rebuild-hint {
+  text-align: center;
+  padding: 5px;
+  margin-top: -10px;
+  margin-bottom: 20px;
+}
+.template-help {
+  font-size: 0.9em;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+  padding: 10px;
+  background-color: var(--background-secondary);
+  border-radius: 5px;
+  width: 100%;
+}
+.template-help code {
+  font-family: var(--font-monospace);
+  font-size: 0.9em;
+  color: var(--text-accent);
 }
 </style> 

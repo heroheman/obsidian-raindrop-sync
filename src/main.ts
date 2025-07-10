@@ -23,6 +23,7 @@ export interface RaindropSyncSettings {
 		tags: boolean;
 		highlights: boolean;
 		notes: boolean;
+		type: boolean;
 	};
 	collectionIds: number[];
 	expandedCollectionIds: number[];
@@ -41,6 +42,7 @@ const DEFAULT_SETTINGS: RaindropSyncSettings = {
 		tags: true,
 		highlights: true,
 		notes: true,
+		type: true,
 	},
 	collectionIds: [],
 	expandedCollectionIds: [],
@@ -70,11 +72,19 @@ tags: [{{#each tags}}"{{this}}"{{#unless @last}}, {{/unless}}{{/each}}]
 cover: "{{cover}}"
 hasHighlights: {{#if highlights.length}}true{{else}}false{{/if}}
 hasNotes: {{#if note}}true{{else}}false{{/if}}
+raindropId: {{_id}}
+raindropLastUpdated: "{{lastUpdate}}"
+raindropType: "{{type}}"
+raindropCollectionId: {{collection.$id}}
+domain: "{{domain}}"
+collection: "[[{{collectionPath}}]]"
 ---
 
 # {{title}}
 
 [{{title}}]({{link}})
+
+> {{{excerpt}}}
 
 {{#if note}}
 ## Note
@@ -204,6 +214,19 @@ export default class RaindropSyncPlugin extends Plugin {
 		);
     }
 
+	private sanitizeForPath(name: string) {
+		// Only remove characters that are invalid in folder names across OSs
+		return name.replace(/[\\/:"*?<>|]/g, '-');
+	}
+
+	private sanitizeForFile(name: string) {
+		const sanitized = name
+			.toLowerCase()
+			.replace(/\s+/g, '_') // Replace spaces and whitespace with a single underscore
+			.replace(/[^a-z0-9_]/g, ''); // Remove all non-alphanumeric chars except underscore
+		return sanitized.substring(0, 80);
+	}
+
 	async syncListView() {
 		if (!this.settings.collectionIds || this.settings.collectionIds.length === 0) {
 			new Notice('No collections selected to sync.');
@@ -320,10 +343,31 @@ export default class RaindropSyncPlugin extends Plugin {
 			const allApiCollections = await getCollections(this.settings);
 			const template = Handlebars.compile(this.settings.fileViewTemplate);
 			const fileViewFolder = this.settings.fileViewStorageFolder;
-			const sanitize = (name: string) => {
-				const sanitized = name.replace(/[\\/:"*?<>|]/g, '-').replace(/ /g, '_');
-				return sanitized.substring(0, 80);
-			};
+
+			// Create a map for quick lookups
+			const collectionsMap = new Map(allApiCollections.map(c => [c._id, c]));
+			const getCollectionPath = (collectionId: number): [string, string] => {
+				let current = collectionsMap.get(collectionId);
+				if (!current) return ["", ""];
+
+				const path: string[] = [];
+				let rootCollection = current;
+
+				while(current) {
+					path.unshift(current.title);
+					const parentId = current.parent?.$id;
+					if (parentId && collectionsMap.has(parentId)) {
+						rootCollection = collectionsMap.get(parentId)!;
+						current = collectionsMap.get(parentId);
+					} else {
+						current = undefined;
+					}
+				}
+				
+				const pathString = path.join(' > ');
+				const linkPath = `${this.sanitizeForFile(rootCollection.title)}#${path[path.length - 1]}`;
+				return [pathString, linkPath];
+			}
 
 			if (!await this.app.vault.adapter.exists(fileViewFolder)) {
 				await this.app.vault.createFolder(fileViewFolder);
@@ -332,15 +376,20 @@ export default class RaindropSyncPlugin extends Plugin {
 			const selectedCollections = allApiCollections.filter(c => this.settings.collectionIds.includes(c._id));
 
 			for (const collection of selectedCollections) {
-				const collectionFolder = `${fileViewFolder}/${sanitize(collection.title)}`;
+				const collectionFolder = `${fileViewFolder}/${this.sanitizeForPath(collection.title)}`;
 				if (!await this.app.vault.adapter.exists(collectionFolder)) {
 					await this.app.vault.createFolder(collectionFolder);
 				}
 
 				const raindrops = await getRaindrops(this.settings, collection._id);
 				for (const raindrop of raindrops) {
-					const renderedContent = template(raindrop);
-					const fileName = `${sanitize(raindrop.title)}.md`;
+					const [_, collectionPath] = getCollectionPath(raindrop.collection.$id);
+					const raindropWithContext = {
+						...raindrop,
+						collectionPath,
+					};
+					const renderedContent = template(raindropWithContext);
+					const fileName = `${this.sanitizeForFile(raindrop.title)}.md`;
 					const filePath = `${collectionFolder}/${fileName}`;
 					await this.app.vault.adapter.write(filePath, renderedContent);
 				}
@@ -355,8 +404,12 @@ export default class RaindropSyncPlugin extends Plugin {
 
 				const raindrops = await getRaindrops(this.settings, 0);
 				for (const raindrop of raindrops) {
-					const renderedContent = template(raindrop);
-					const fileName = `${sanitize(raindrop.title)}.md`;
+					const raindropWithContext = {
+						...raindrop,
+						collectionPath: 'Unsorted',
+					};
+					const renderedContent = template(raindropWithContext);
+					const fileName = `${this.sanitizeForFile(raindrop.title)}.md`;
 					const filePath = `${unsortedFolder}/${fileName}`;
 					await this.app.vault.adapter.write(filePath, renderedContent);
 				}
@@ -399,11 +452,6 @@ export default class RaindropSyncPlugin extends Plugin {
 				}
 			});
 
-			const sanitize = (name: string) => {
-				const sanitized = name.replace(/[\\/:"*?<>|]/g, '-').replace(/ /g, '_');
-				return sanitized.substring(0, 80);
-			};
-
 			const fileViewFolder = this.settings.fileViewStorageFolder;
 			const indexFolder = this.settings.fileViewIndexFolder;
 			if (!await this.app.vault.adapter.exists(indexFolder)) {
@@ -419,12 +467,11 @@ export default class RaindropSyncPlugin extends Plugin {
 				}
 				
 				const title = node.collection.title;
-				const sanitizedTitle = sanitize(title);
 				
-				toc += `${'  '.repeat(level-1)}- [[#${sanitizedTitle}]]\n`;
-				content += `${'#'.repeat(level)} ${sanitizedTitle}\n\n`;
+				toc += `${'  '.repeat(level-1)}- [[#${title}]]\n`;
+				content += `${'#'.repeat(level)} ${title}\n\n`;
 
-				const fromClause = `"${fileViewFolder}/${sanitize(node.collection.title)}"`;
+				const fromClause = `"${fileViewFolder}/${this.sanitizeForPath(node.collection.title)}"`;
 				
 				const dvSettings = this.settings.fileViewDataviewColumns;
 				const columns = [];
@@ -440,6 +487,9 @@ export default class RaindropSyncPlugin extends Plugin {
 				}
 				if (dvSettings.notes) {
 					columns.push('choice(hasNotes, "✅", "❌") as "Notes"');
+				}
+				if (dvSettings.type) {
+					columns.push('raindropType as "Type"');
 				}
 				columns.push('link(file.path, "show") as "Detail"');
 				const tableCols = columns.join(',\n    ');
@@ -467,7 +517,7 @@ SORT file.ctime DESC
 				
 				if (content) {
 					const finalContent = '# Table of Contents\n' + toc + '---\n\n' + content;
-					const fileName = `${sanitize(rootNode.collection.title)}.md`;
+					const fileName = `${this.sanitizeForFile(rootNode.collection.title)}.md`;
 					const filePath = `${indexFolder}/${fileName}`;
 					await this.app.vault.adapter.write(filePath, finalContent);
 				}
@@ -491,6 +541,9 @@ SORT file.ctime DESC
 				}
 				if (dvSettings.notes) {
 					columns.push('choice(hasNotes, "✅", "❌") as "Notes"');
+				}
+				if (dvSettings.type) {
+					columns.push('raindropType as "Type"');
 				}
 				columns.push('link(file.path, "show") as "Detail"');
 				const tableCols = columns.join(',\n    ');
@@ -526,6 +579,9 @@ class RaindropSyncSettingTab extends PluginSettingTab {
 
 	display(): void {
 		const { containerEl } = this;
+		if (this.vueApp) {
+			this.vueApp.unmount();
+		}
 		containerEl.empty();
 
 		const onSettingsUpdate = (newSettings: RaindropSyncSettings) => {

@@ -26,6 +26,12 @@ export interface RaindropItem {
     note: string;
     link: string;
     created: string;
+    lastUpdate: string;
+    type: string;
+    domain: string;
+    collection: {
+        $id: number;
+    };
     tags: string[];
     highlights: RaindropHighlight[];
 }
