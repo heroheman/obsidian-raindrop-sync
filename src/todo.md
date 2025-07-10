@@ -4,3 +4,6 @@
 - [ ] Readme anpassen
 - [ ] Release
 - [ ] configure filenanme pattern
+- [ ] hinweis das dataview gebraucht wird
+- [ ] double borders wegmachen
+- [?] dataview.js option? dann kein reload mehr
