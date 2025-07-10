@@ -4,8 +4,8 @@
 	"version": "0.1.0",
 	"minAppVersion": "0.12.0",
 	"description": "Syncs bookmarks from Raindrop.io to Obsidian.",
-	"author": "Florenz",
-	"authorUrl": "",
+	"author": "heroheman",
+	"authorUrl": "https://github.com/heroheman/obsidian-raindrop-sync",
 	"fundingUrl": "",
 	"isDesktopOnly": true
 }

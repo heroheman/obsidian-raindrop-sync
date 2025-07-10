@@ -15,7 +15,7 @@ An Obsidian plugin to import and synchronize bookmarks from [Raindrop.io](https:
 
 ### Manual
 
-1. Download the latest version from the [Releases](https://github.com/your-username/raindrop-obsidian/releases)
+1. Download the latest version from the [Releases](https://github.com/heroheman/obsidian-raindrop-sync)
 2. Unzip the ZIP file into your `.obsidian/plugins/raindrop-sync/` folder
 3. Activate the plugin in Obsidian settings under "Community Plugins"
 
