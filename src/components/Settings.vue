@@ -1,7 +1,9 @@
 <template>
   <div class="raindrop-settings">
-    <h2>Sync Settings</h2>
-    
+    <h2>Raindrop Sync</h2>
+
+    <!-- General Settings -->
+    <h3>Global</h3>
     <div class="setting-item">
       <div class="setting-item-info">
         <div class="setting-item-name">API Token</div>
@@ -13,7 +15,23 @@
         <input type="password" v-model="localSettings.apiToken" @input="updateSettings" placeholder="Enter your token">
       </div>
     </div>
+    <!-- <div class="setting-item">
+      <div class="setting-item-info">
+        <div class="setting-item-name">Sync only bookmarks with highlights</div>
+        <div class="setting-item-description">
+          If enabled, only bookmarks that have highlights will be synchronized.
+        </div>
+      </div>
+      <div class="setting-item-control">
+        <label class="switch">
+          <input type="checkbox" v-model="localSettings.onlyBookmarksWithHighlights" @change="updateSettings">
+          <span class="slider round"></span>
+        </label>
+      </div>
+    </div> -->
 
+    <!-- Collections Settings -->
+    <h3>Collections</h3>
     <div class="setting-item">
       <div class="setting-item-info">
         <div class="setting-item-name">Cascading Selection</div>
@@ -26,10 +44,35 @@
         </label>
       </div>
     </div>
-
+    <div v-if="isLoading" class="loading">Loading collections...</div>
+    <div v-else-if="error" class="error">{{ error }}</div>
+    <div v-else class="collections-tree">
+      <CollectionNode
+        v-for="node in collectionTree"
+        :key="node.collection._id"
+        :node="node"
+        :settings="localSettings"
+        @toggle-expand="handleToggleExpand"
+        @toggle-select="handleToggleSelect"
+      />
+      <div class="setting-item unsorted-toggle">
+        <div class="setting-item-info">
+          <div class="setting-item-name">Unsorted</div>
+          <div class="setting-item-description">Include bookmarks that are not in any collection.</div>
+        </div>
+        <div class="setting-item-control">
+          <label class="switch">
+            <input type="checkbox" :checked="isUnsortedSelected" @change="handleToggleUnsorted">
+            <span class="slider round"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Highlight Settings -->
     <h3>Highlight Settings</h3>
-    <div class="rebuild-hint">
-      Note: Changes to highlight settings require a full re-sync of the affected files.
+    <div class="hint-text">
+        Note: Changes to highlight settings require a full re-sync of the affected files.
     </div>
     <div class="setting-item">
       <div class="setting-item-info">
@@ -56,50 +99,24 @@
       </div>
     </div>
 
-    <h3>Collections to Sync</h3>
-    <div v-if="isLoading" class="loading">Loading collections...</div>
-    <div v-else-if="error" class="error">{{ error }}</div>
-    <div v-else class="collections-tree">
-      <!-- Collection tree will be rendered here -->
-      <CollectionNode
-        v-for="node in collectionTree"
-        :key="node.collection._id"
-        :node="node"
-        :settings="localSettings"
-        @toggle-expand="handleToggleExpand"
-        @toggle-select="handleToggleSelect"
-      />
-      <!-- Unsorted collection toggle -->
-      <div class="setting-item unsorted-toggle">
-        <div class="setting-item-info">
-          <div class="setting-item-name">Unsorted</div>
-          <div class="setting-item-description">Include bookmarks that are not in any collection.</div>
-        </div>
-        <div class="setting-item-control">
-          <label class="switch">
-            <input type="checkbox" :checked="isUnsortedSelected" @change="handleToggleUnsorted">
-            <span class="slider round"></span>
-          </label>
-        </div>
-      </div>
-    </div>
-
+    <!-- View-specific Settings -->
+    <h3>View Options</h3>
     <div class="view-switcher">
       <button :class="{ active: settingsView === 'list' }" @click="settingsView = 'list'">List View</button>
       <button :class="{ active: settingsView === 'file' }" @click="settingsView = 'file'">File View</button>
     </div>
 
-    <div class="view-description">
+    <div class="hint-text view-description">
       <div v-if="settingsView === 'list'">
-        Generates a single Markdown file for each root collection, listing all selected bookmarks hierarchically. This is useful for a simple, readable list.
+        Generates a single Markdown file for each root collection, listing all selected bookmarks hierarchically. This view is ideal for creating simple, readable "Table of Contents" style documents from your bookmarks. It's fast, efficient, and great for overviews.
       </div>
       <div v-if="settingsView === 'file'">
-        Creates an individual Markdown file for each bookmark and generates index files with Dataview tables to navigate them. This is powerful for querying and organization.
+        Creates an individual Markdown file for each bookmark and generates powerful index files with Dataview tables to navigate them. This view treats each bookmark as a separate note in your vault, enabling you to link to them, tag them, and query them using Obsidian's native features and the Dataview plugin. This is the recommended approach for deep integration with your knowledge base.
       </div>
     </div>
 
+    <!-- List View Settings -->
     <div v-if="settingsView === 'list'">
-      <h3>List View Settings</h3>
       <div class="setting-item">
         <div class="setting-item-info">
           <div class="setting-item-name">Show Ribbon Icon</div>
@@ -127,27 +144,24 @@
             <div class="setting-item-description">Define the template for each bookmark using Handlebars.</div>
         </div>
       </div>
-      <div class="setting-item-description template-help">
+      <textarea v-model="localSettings.template" @input="updateSettings"></textarea>
+      <div class="hint-text template-help">
         <p><b>Available Variables:</b></p>
         <ul>
           <li><code>_id, title, link, excerpt, note, cover, tags, highlights, created, lastUpdate, type, domain</code></li>
         </ul>
         <p><b>Available Helpers:</b></p>
         <ul>
-          <li><code>formatDate date</code>: Formats an ISO date string into <code>YYYY-MM-DD</code>.</li>
-          <li><code>formatTags tags</code>: Converts an array of tags into a hashtagged string (e.g., "#tag1 #tag2").</li>
-          <li><code>formatText text</code>: Formats multi-line text for proper Markdown list indentation and escapes '#' characters.</li>
-          <li><code>formatHighlightText text</code>: A version of <code>formatText</code> that wraps the content in <code>==highlight==</code> tags for Markdown highlighting.</li>
+          <li><code>formatDate date</code>, <code>formatTags tags</code>, <code>formatText text</code>, <code>formatHighlightText highlight</code></li>
         </ul>
       </div>
-      <textarea v-model="localSettings.template" @input="updateSettings"></textarea>
       <div class="setting-item-control template-actions">
           <button @click="emit('reset-template')">Reset to Default</button>
       </div>
     </div>
 
+    <!-- File View Settings -->
     <div v-if="settingsView === 'file'">
-      <h3>File View Settings</h3>
       <div class="setting-item">
         <div class="setting-item-info">
           <div class="setting-item-name">Show Ribbon Icon</div>
@@ -178,7 +192,6 @@
           <input type="text" v-model="localSettings.fileViewIndexFolder" @input="updateSettings" placeholder="e.g., Raindrop/Index">
         </div>
       </div>
-
       <h4>Dataview Columns</h4>
       <div class="setting-item">
         <div class="setting-item-info">
@@ -240,28 +253,23 @@
           </label>
         </div>
       </div>
-
-      <div class="setting-item-description rebuild-hint">
-        Note: Run the "Regenerate File View Index" command for column changes to apply.
-      </div>
-
       <div class="setting-item">
         <div class="setting-item-info">
             <div class="setting-item-name">Bookmark File Template</div>
             <div class="setting-item-description">Define the template for individual bookmark files. Use YAML frontmatter for Dataview fields.</div>
         </div>
       </div>
-      <div class="setting-item-description template-help">
+      <textarea v-model="localSettings.fileViewTemplate" @input="updateSettings"></textarea>
+      <div class="hint-text template-help">
         <p><b>Available Variables (in addition to List View variables):</b></p>
         <ul>
-          <li><code>_id, title, link, excerpt, note, cover, tags, highlights, created, lastUpdate, type, domain, collection, collectionPath</code></li>
+          <li><code>collection</code>, <code>collectionPath</code></li>
         </ul>
         <p><b>Available Helpers:</b></p>
         <ul>
           <li>All helpers from the List View are also available here.</li>
         </ul>
       </div>
-      <textarea v-model="localSettings.fileViewTemplate" @input="updateSettings"></textarea>
       <div class="setting-item-control template-actions">
           <button @click="emit('reset-file-template')">Reset to Default</button>
       </div>
@@ -359,13 +367,10 @@ const handleToggleSelect = (node: CollectionNodeType, state: boolean) => {
   updateSettings();
 };
 
-
-// Watch for changes in props and update local state if necessary
 watch(() => props.settings, (newSettings) => {
   localSettings.value = { ...newSettings };
 });
 
-// Function to emit the updated settings
 const updateSettings = () => {
   emit('update-settings', localSettings.value);
 };
@@ -400,9 +405,12 @@ onMounted(() => {
   align-items: center;
   margin-bottom: 20px;
   border-bottom: 1px solid var(--background-modifier-border);
+  border-top: none; /* Ensure no top border */
   padding-bottom: 10px;
 }
-.setting-item:last-child {
+/* No border on the last setting item in a group */
+.collections-tree .setting-item:last-of-type,
+.view-switcher + div > .setting-item:last-of-type {
   border-bottom: none;
 }
 .setting-item-info {
@@ -414,28 +422,48 @@ onMounted(() => {
 }
 .setting-item-description {
   font-size: 0.9em;
+  font-style: italic;
   color: var(--text-muted);
+}
+.hint-text {
+  font-size: 0.9em;
+  font-style: italic;
+  color: var(--text-muted);
+  background-color: var(--background-secondary);
+  padding: 10px;
+  border-radius: 4px;
+  margin: 15px 0;
+  width: 100%;
+}
+.view-description {
+  margin-top: -5px;
+}
+.template-help {
+  margin-top: -10px;
+  margin-bottom: 10px;
+}
+.template-help ul {
+  list-style-type: disc;
+  padding-left: 20px;
+  margin: 10px 0;
+}
+.template-help li {
+  margin-bottom: 5px;
 }
 .setting-item-control input {
   width: 250px;
 }
-
-/* The switch - the box around the slider */
 .switch {
   position: relative;
   display: inline-block;
   width: 34px;
   height: 20px;
 }
-
-/* Hide default HTML checkbox */
 .switch input {
   opacity: 0;
   width: 0;
   height: 0;
 }
-
-/* The slider */
 .slider {
   position: absolute;
   cursor: pointer;
@@ -444,10 +472,8 @@ onMounted(() => {
   right: 0;
   bottom: 0;
   background-color: var(--background-modifier-border);
-  -webkit-transition: .2s;
   transition: .2s;
 }
-
 .slider:before {
   position: absolute;
   content: "";
@@ -456,64 +482,55 @@ onMounted(() => {
   left: 4px;
   bottom: 4px;
   background-color: white;
-  -webkit-transition: .2s;
   transition: .2s;
 }
-
 input:checked + .slider {
   background-color: var(--interactive-accent);
 }
-
 input:focus + .slider {
   box-shadow: 0 0 1px var(--interactive-accent);
 }
-
 input:checked + .slider:before {
-  -webkit-transform: translateX(14px);
-  -ms-transform: translateX(14px);
   transform: translateX(14px);
 }
-
-/* Rounded sliders */
 .slider.round {
   border-radius: 20px;
 }
-
 .slider.round:before {
   border-radius: 50%;
 }
-
 .template-actions {
-    text-align: right;
-    margin-top: 10px;
+  text-align: right;
+  margin-top: 10px;
 }
-
-h3 {
-    margin-top: 30px;
-    border-bottom: 1px solid var(--background-modifier-border);
-    padding-bottom: 5px;
+h3, h4 {
+  margin-top: 45px;
+  margin-bottom: 25px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding-bottom: 10px;
 }
 .unsorted-toggle {
-    margin-top: 15px;
-    padding-top: 15px;
-    border-top: 1px solid var(--background-modifier-border);
+  border-top: none;
+  padding-top: 15px;
+  margin-top: 15px;
 }
 textarea {
-    width: 100%;
-    min-height: 200px;
-    margin-bottom: 10px;
-    font-family: monospace;
-    background-color: var(--background-secondary);
-    color: var(--text-normal);
-    border: 1px solid var(--background-modifier-border);
-    border-radius: 4px;
-    padding: 5px;
+  width: 100%;
+  min-height: 200px;
+  margin-bottom: 10px;
+  font-family: monospace;
+  background-color: var(--background-secondary);
+  color: var(--text-normal);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  padding: 5px;
 }
 a {
-    color: var(--text-accent);
+  color: var(--text-accent);
 }
 .view-switcher {
   display: flex;
+  margin-top: 45px;
   margin-bottom: 20px;
   border-bottom: 1px solid var(--background-modifier-border);
   padding-bottom: 10px;
@@ -530,32 +547,9 @@ a {
   border-bottom-color: var(--interactive-accent);
   color: var(--text-normal);
 }
-.view-description {
-  font-size: 0.9em;
-  color: var(--text-muted);
-  margin-bottom: 20px;
-  padding: 10px;
-  background-color: var(--background-secondary);
-  border-radius: 5px;
-}
-.rebuild-hint {
-  text-align: center;
-  padding: 5px;
-  margin-top: -10px;
-  margin-bottom: 20px;
-}
-.template-help {
-  font-size: 0.9em;
-  color: var(--text-muted);
-  margin-bottom: 10px;
-  padding: 10px;
-  background-color: var(--background-secondary);
-  border-radius: 5px;
-  width: 100%;
-}
 .template-help code {
   font-family: var(--font-monospace);
   font-size: 0.9em;
   color: var(--text-accent);
 }
-</style> 
+</style>

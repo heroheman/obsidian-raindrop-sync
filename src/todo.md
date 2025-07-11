@@ -4,8 +4,10 @@
 - [ ] Readme anpassen
 - [ ] Release
 - [ ] configure filenanme pattern
-- [ ] hinweis das dataview gebraucht wird
-- [ ] double borders wegmachen
+- [x] hinweis das dataview gebraucht wird
+- [x] double borders wegmachen
 - [?] dataview.js option? dann kein reload mehr
-- [ ] enable / disable ribbon and commands?
+- [x] enable / disable ribbon and commands?
 - [ ] coffee link
+- [ ] nur bookmarks mit highlgihts syncen
+- [ ] test connection, show username

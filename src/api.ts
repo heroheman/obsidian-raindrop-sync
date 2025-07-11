@@ -78,8 +78,20 @@ export const getRaindrops = async (settings: RaindropSyncSettings, collectionId:
     // A collectionId of 0 or -1 typically refers to "Unsorted" bookmarks
     const effectiveCollectionId = collectionId === 0 ? -1 : collectionId;
 
+    let url = `${API_BASE_URL}/raindrops/${effectiveCollectionId}`;
+    // const params = new URLSearchParams();
+
+    // if (settings.onlyBookmarksWithHighlights) {
+    //     params.append('search', 'has:highlight');
+    // }
+
+    // const paramString = params.toString();
+    // if (paramString) {
+    //     url += `?${paramString}`;
+    // }
+
     const response = await requestUrl({
-        url: `${API_BASE_URL}/raindrops/${effectiveCollectionId}`,
+        url,
         method: 'GET',
         headers: {
             'Authorization': `Bearer ${settings.apiToken}`

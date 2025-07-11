@@ -34,6 +34,7 @@ export interface RaindropSyncSettings {
 	showRibbonFile: boolean;
 	useMarkdownHighlights: boolean;
 	useColoredHighlights: boolean;
+	// onlyBookmarksWithHighlights: boolean;
 }
 
 const DEFAULT_SETTINGS: RaindropSyncSettings = {
@@ -109,6 +110,7 @@ collection: "[[{{collectionPath}}]]"
 	showRibbonFile: true,
 	useMarkdownHighlights: true,
 	useColoredHighlights: true,
+	// onlyBookmarksWithHighlights: false,
 }
 
 export default class RaindropSyncPlugin extends Plugin {
