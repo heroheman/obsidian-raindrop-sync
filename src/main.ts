@@ -32,6 +32,7 @@ export interface RaindropSyncSettings {
 	fileViewTemplate: string;
 	showRibbonList: boolean;
 	showRibbonFile: boolean;
+	useMarkdownHighlights: boolean;
 }
 
 const DEFAULT_SETTINGS: RaindropSyncSettings = {
@@ -49,7 +50,7 @@ const DEFAULT_SETTINGS: RaindropSyncSettings = {
 	collectionIds: [],
 	expandedCollectionIds: [],
 	cascadeSelection: true,
-	template: `- [{{title}}]({{link}}) *{{getBaseUrl link}}*
+	template: `- [{{title}}]({{link}}) *{{domain}}*
     {{#if tags.length}}
     - _Tags_: {{formatTags tags}}
     {{/if}}
@@ -105,6 +106,7 @@ collection: "[[{{collectionPath}}]]"
 `,
 	showRibbonList: true,
 	showRibbonFile: true,
+	useMarkdownHighlights: true,
 }
 
 export default class RaindropSyncPlugin extends Plugin {
@@ -124,43 +126,42 @@ export default class RaindropSyncPlugin extends Plugin {
 			return tags.map(t => `#${t}`).join(' ');
 		});
 
-		Handlebars.registerHelper('getBaseUrl', function (url: string) {
-			if (!url) return '';
-			try {
-				return new URL(url).hostname;
-			} catch (e) {
-				return ''; // Return empty string if URL is invalid
-			}
-		});
-
 		Handlebars.registerHelper('formatText', function (text: string) {
-			if (!text) return '';
+			if (!text) return new Handlebars.SafeString('');
 			// Escape hashtags to prevent them from being interpreted as Obsidian tags
 			let escaped = text.replace(/#/g, '\\#');
 			// Split by paragraphs (double newlines or single newlines) and create list items
 			const paragraphs = escaped.split(/\n+/).filter(p => p.trim() !== '');
 			if (paragraphs.length <= 1) {
-				return escaped;
+				return new Handlebars.SafeString(escaped);
 			}
 			// Return first paragraph normally, additional paragraphs as sub-list items
 			const firstParagraph = paragraphs[0];
 			const additionalParagraphs = paragraphs.slice(1).map(p => `            - ${p}`).join('\n');
-			return firstParagraph + (additionalParagraphs ? '\n' + additionalParagraphs : '');
+			return new Handlebars.SafeString(firstParagraph + (additionalParagraphs ? '\n' + additionalParagraphs : ''));
 		});
 
-		Handlebars.registerHelper('formatHighlightText', function (text: string) {
-			if (!text) return '';
+		Handlebars.registerHelper('formatHighlightText', (text: string) => {
+			if (!text) return new Handlebars.SafeString('');
+			
+			// Apply markdown highlight if enabled
+			const wrapInHighlight = (str: string) => {
+				return this.settings.useMarkdownHighlights ? `==${str}==` : str;
+			}
+
 			// Escape hashtags to prevent them from being interpreted as Obsidian tags
 			let escaped = text.replace(/#/g, '\\#');
 			// Split by paragraphs (double newlines or single newlines) and create list items
 			const paragraphs = escaped.split(/\n+/).filter(p => p.trim() !== '');
+			
 			if (paragraphs.length <= 1) {
-				return escaped;
+				return new Handlebars.SafeString(wrapInHighlight(escaped));
 			}
+
 			// Return first paragraph normally, additional paragraphs as sub-list items
-			const firstParagraph = paragraphs[0];
+			const firstParagraph = wrapInHighlight(paragraphs[0]);
 			const additionalParagraphs = paragraphs.slice(1).map(p => `        - ${p}`).join('\n');
-			return firstParagraph + (additionalParagraphs ? '\n' + additionalParagraphs : '');
+			return new Handlebars.SafeString(firstParagraph + (additionalParagraphs ? '\n' + additionalParagraphs : ''));
 		});
 
 

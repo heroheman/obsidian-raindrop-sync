@@ -27,6 +27,19 @@
       </div>
     </div>
 
+    <div class="setting-item">
+      <div class="setting-item-info">
+        <div class="setting-item-name">Markdown Highlights</div>
+        <div class="setting-item-description">Use <code>==highlight==</code> syntax for bookmark highlights.</div>
+      </div>
+      <div class="setting-item-control">
+        <label class="switch">
+          <input type="checkbox" v-model="localSettings.useMarkdownHighlights" @change="updateSettings">
+          <span class="slider round"></span>
+        </label>
+      </div>
+    </div>
+
     <h3>Collections to Sync</h3>
     <div v-if="isLoading" class="loading">Loading collections...</div>
     <div v-else-if="error" class="error">{{ error }}</div>
@@ -99,10 +112,17 @@
         </div>
       </div>
       <div class="setting-item-description template-help">
-        <b>Available variables:</b><br>
-        <code>_id, title, link, excerpt, note, cover, tags, highlights, created, lastUpdate, type, domain</code><br>
-        <b>Available helpers:</b><br>
-        <code>formatDate, formatTags, getBaseUrl, formatText, formatHighlightText</code>
+        <p><b>Available Variables:</b></p>
+        <ul>
+          <li><code>_id, title, link, excerpt, note, cover, tags, highlights, created, lastUpdate, type, domain</code></li>
+        </ul>
+        <p><b>Available Helpers:</b></p>
+        <ul>
+          <li><code>formatDate date</code>: Formats an ISO date string into <code>YYYY-MM-DD</code>.</li>
+          <li><code>formatTags tags</code>: Converts an array of tags into a hashtagged string (e.g., "#tag1 #tag2").</li>
+          <li><code>formatText text</code>: Formats multi-line text for proper Markdown list indentation and escapes '#' characters.</li>
+          <li><code>formatHighlightText text</code>: A version of <code>formatText</code> that wraps the content in <code>==highlight==</code> tags for Markdown highlighting.</li>
+        </ul>
       </div>
       <textarea v-model="localSettings.template" @input="updateSettings"></textarea>
       <div class="setting-item-control template-actions">
@@ -216,10 +236,14 @@
         </div>
       </div>
       <div class="setting-item-description template-help">
-        <b>Available variables:</b><br>
-        <code>_id, title, link, excerpt, note, cover, tags, highlights, created, lastUpdate, type, domain, collection, collectionPath</code><br>
-        <b>Available helpers:</b><br>
-        <code>formatDate, formatTags, getBaseUrl, formatText, formatHighlightText</code>
+        <p><b>Available Variables (in addition to List View variables):</b></p>
+        <ul>
+          <li><code>_id, title, link, excerpt, note, cover, tags, highlights, created, lastUpdate, type, domain, collection, collectionPath</code></li>
+        </ul>
+        <p><b>Available Helpers:</b></p>
+        <ul>
+          <li>All helpers from the List View are also available here.</li>
+        </ul>
       </div>
       <textarea v-model="localSettings.fileViewTemplate" @input="updateSettings"></textarea>
       <div class="setting-item-control template-actions">
