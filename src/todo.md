@@ -10,4 +10,6 @@
 - [x] enable / disable ribbon and commands?
 - [ ] coffee link
 - [ ] nur bookmarks mit highlgihts syncen
+- [x] incremental sync
 - [ ] test connection, show username
+- [ ] in listview last sync anders speichern

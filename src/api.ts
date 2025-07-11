@@ -70,7 +70,7 @@ export const getCollections = async (settings: RaindropSyncSettings): Promise<Ra
     return Array.from(collectionMap.values());
 };
 
-export const getRaindrops = async (settings: RaindropSyncSettings, collectionId: number): Promise<RaindropItem[]> => {
+export const getRaindrops = async (settings: RaindropSyncSettings, collectionId: number, since?: string): Promise<RaindropItem[]> => {
     if (!settings.apiToken) {
         throw new Error('Raindrop API token is not set.');
     }
@@ -79,16 +79,20 @@ export const getRaindrops = async (settings: RaindropSyncSettings, collectionId:
     const effectiveCollectionId = collectionId === 0 ? -1 : collectionId;
 
     let url = `${API_BASE_URL}/raindrops/${effectiveCollectionId}`;
-    // const params = new URLSearchParams();
+    const params = new URLSearchParams();
+
+    if (since) {
+        params.append('search', `lastUpdate:>${since.slice(0, 10)}`);
+    }
 
     // if (settings.onlyBookmarksWithHighlights) {
     //     params.append('search', 'has:highlight');
     // }
 
-    // const paramString = params.toString();
-    // if (paramString) {
-    //     url += `?${paramString}`;
-    // }
+    const paramString = params.toString();
+    if (paramString) {
+        url += `?${paramString}`;
+    }
 
     const response = await requestUrl({
         url,

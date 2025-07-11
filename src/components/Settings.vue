@@ -15,6 +15,18 @@
         <input type="password" v-model="localSettings.apiToken" @input="updateSettings" placeholder="Enter your token">
       </div>
     </div>
+    <div class="setting-item">
+      <div class="setting-item-info">
+        <div class="setting-item-name">Last Sync</div>
+        <div class="setting-item-description">
+          The date of the last successful sync. Clear this to force a full sync next time.
+        </div>
+      </div>
+      <div class="setting-item-control">
+        <input type="text" :value="formattedLastSync" readonly>
+        <button @click="clearLastSync" class="mod-warning" v-if="localSettings.lastSync">Clear</button>
+      </div>
+    </div>
     <!-- <div class="setting-item">
       <div class="setting-item-info">
         <div class="setting-item-name">Sync only bookmarks with highlights</div>
@@ -331,6 +343,18 @@ const handleToggleUnsorted = () => {
   updateSettings();
 };
 
+const clearLastSync = () => {
+  localSettings.value.lastSync = undefined;
+  updateSettings();
+};
+
+const formattedLastSync = computed(() => {
+  if (!localSettings.value.lastSync) {
+    return 'Never';
+  }
+  return new Date(localSettings.value.lastSync).toLocaleString();
+});
+
 const handleToggleExpand = (id: number) => {
   const index = localSettings.value.expandedCollectionIds.indexOf(id);
   if (index > -1) {
@@ -371,6 +395,7 @@ watch(() => props.settings, (newSettings) => {
   localSettings.value = { ...newSettings };
 });
 
+// Function to update settings and emit to the plugin
 const updateSettings = () => {
   emit('update-settings', localSettings.value);
 };

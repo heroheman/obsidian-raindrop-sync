@@ -5,8 +5,9 @@ import {
 	Setting,
 	ToggleComponent,
 	TextAreaComponent,
+	App,
 } from 'obsidian';
-import { getCollections, getRaindrops, RaindropCollection } from './api';
+import { getCollections, getRaindrops, RaindropCollection, RaindropItem } from './api';
 import * as Handlebars from 'handlebars';
 import { App as VueApp, createApp } from "vue";
 import Settings from "./components/Settings.vue";
@@ -34,6 +35,7 @@ export interface RaindropSyncSettings {
 	showRibbonFile: boolean;
 	useMarkdownHighlights: boolean;
 	useColoredHighlights: boolean;
+	lastSync?: string;
 	// onlyBookmarksWithHighlights: boolean;
 }
 
@@ -110,6 +112,7 @@ collection: "[[{{collectionPath}}]]"
 	showRibbonFile: true,
 	useMarkdownHighlights: true,
 	useColoredHighlights: true,
+	lastSync: undefined,
 	// onlyBookmarksWithHighlights: false,
 }
 
@@ -204,9 +207,21 @@ export default class RaindropSyncPlugin extends Plugin {
 		});
 
 		this.addCommand({
+			id: 'sync-new-raindrop-bookmarks-list-view',
+			name: 'Sync New Bookmarks (List View)',
+			callback: () => this.syncListView(true)
+		});
+
+		this.addCommand({
 			id: 'sync-raindrop-bookmarks-file-view',
 			name: 'Sync Bookmarks (File View)',
 			callback: () => this.syncFileView()
+		});
+
+		this.addCommand({
+			id: 'sync-new-raindrop-bookmarks-file-view',
+			name: 'Sync New Bookmarks (File View)',
+			callback: () => this.syncFileView(true)
 		});
 
 		this.addCommand({
@@ -218,13 +233,13 @@ export default class RaindropSyncPlugin extends Plugin {
 		// This adds a ribbon icon for quick access to sync
 		if (this.settings.showRibbonList) {
 			this.addRibbonIcon('cloud-download', 'Sync Bookmarks (List View)', () => {
-				this.syncListView();
+				this.syncListView(true);
 			});
 		}
 
 		if (this.settings.showRibbonFile) {
 			this.addRibbonIcon('cloud-download', 'Sync Bookmarks (File View)', () => {
-				this.syncFileView();
+				this.syncFileView(true);
 			});
 		}
 
@@ -269,106 +284,154 @@ export default class RaindropSyncPlugin extends Plugin {
 		return sanitized.substring(0, 80);
 	}
 
-	async syncListView() {
+	async syncListView(incremental = false) {
 		if (!this.settings.collectionIds || this.settings.collectionIds.length === 0) {
 			new Notice('No collections selected to sync.');
 			return;
 		}
+
+		if (incremental && !this.settings.lastSync) {
+			new Notice('First sync, running a full sync.');
+			incremental = false;
+		}
 		
 		try {
-			new Notice('Syncing Raindrop bookmarks...');
+			new Notice(incremental ? 'Syncing new Raindrop bookmarks...' : 'Syncing Raindrop bookmarks...');
 
 			const allApiCollections = await getCollections(this.settings);
-			
-			const nodes: Record<number, CollectionNode> = {};
-			allApiCollections.forEach(c => {
-				nodes[c._id] = { collection: c, children: [] };
-			});
-
-			const rootNodes: CollectionNode[] = [];
-			allApiCollections.forEach(c => {
-				const parentId = c.parent?.$id;
-				if (parentId && nodes[parentId]) {
-					nodes[parentId].children.push(nodes[c._id]);
-				} else {
-					rootNodes.push(nodes[c._id]);
-				}
-			});
-
-			let totalSyncedItems = 0;
-			const folder = this.settings.storageFolder;
-			if (!await this.app.vault.adapter.exists(folder)) {
-				await this.app.vault.createFolder(folder);
-			}
-
+			const collectionsMap = new Map(allApiCollections.map(c => [c._id, c]));
 			const template = Handlebars.compile(this.settings.template);
-			
-			const getSelectedDescendants = (node: CollectionNode): CollectionNode[] => {
-				let descendants: CollectionNode[] = [];
-				if (this.settings.collectionIds.includes(node.collection._id)) {
-					descendants.push(node);
+
+			if (incremental) {
+				let allNewRaindrops: RaindropItem[] = [];
+				for (const collectionId of this.settings.collectionIds) {
+					const raindrops = await getRaindrops(this.settings, collectionId, this.settings.lastSync);
+					allNewRaindrops.push(...raindrops);
 				}
-				node.children.forEach(child => {
-					descendants = descendants.concat(getSelectedDescendants(child));
-				});
-				return descendants;
-			};
 
-			for (const rootNode of rootNodes) {
-				const selectedInTree = getSelectedDescendants(rootNode);
-				if (selectedInTree.length === 0) continue;
+				if (allNewRaindrops.length === 0) {
+					new Notice('No new items to sync.');
+					return;
+				}
 
-				let content = '';
-				let toc = '# Table of Contents\n';
-				
-				const processNode = async (node: CollectionNode, level: number): Promise<string> => {
-					let nodeContent = '';
-					if (!this.settings.collectionIds.includes(node.collection._id)) {
-						return '';
+				const newItemsByCollection = new Map<string, RaindropItem[]>();
+				for (const item of allNewRaindrops) {
+					const collectionName = collectionsMap.get(item.collection.$id)?.title || 'Unsorted';
+					if (!newItemsByCollection.has(collectionName)) {
+						newItemsByCollection.set(collectionName, []);
 					}
-					
-					const title = node.collection.title;
-					const sanitizedTitle = title.replace(/[\\/:"*?<>|]/g, '');
-					
-					toc += `${'  '.repeat(level-1)}- [[#${sanitizedTitle}]]\n`;
-					nodeContent += `${'#'.repeat(level)} ${sanitizedTitle}\n\n`;
+					newItemsByCollection.get(collectionName)?.push(item);
+				}
 
-					const raindrops = await getRaindrops(this.settings, node.collection._id);
+				let content = `# New Raindrop Items - ${new Date().toLocaleString()}\n\n`;
+				for (const [collectionName, items] of newItemsByCollection.entries()) {
+					content += `## ${collectionName}\n\n`;
+					content += items.map(item => template(item).trim()).join('\n') + '\n\n';
+				}
+				
+				const folder = this.settings.storageFolder;
+				const fileName = `Incremental Sync - ${new Date().toISOString().slice(0, 10)}.md`;
+				const filePath = `${folder}/${fileName}`;
+				
+				if (!await this.app.vault.adapter.exists(folder)) {
+					await this.app.vault.createFolder(folder);
+				}
+				await this.app.vault.adapter.write(filePath, content);
+
+				new Notice(`Incremental sync complete. ${allNewRaindrops.length} items synced.`);
+			} else {
+				// Full Sync Logic
+				const nodes: Record<number, CollectionNode> = {};
+				allApiCollections.forEach(c => {
+					nodes[c._id] = { collection: c, children: [] };
+				});
+	
+				const rootNodes: CollectionNode[] = [];
+				allApiCollections.forEach(c => {
+					const parentId = c.parent?.$id;
+					if (parentId && nodes[parentId]) {
+						nodes[parentId].children.push(nodes[c._id]);
+					} else {
+						rootNodes.push(nodes[c._id]);
+					}
+				});
+	
+				let totalSyncedItems = 0;
+				const folder = this.settings.storageFolder;
+				if (!await this.app.vault.adapter.exists(folder)) {
+					await this.app.vault.createFolder(folder);
+				}
+	
+				const getSelectedDescendants = (node: CollectionNode): CollectionNode[] => {
+					let descendants: CollectionNode[] = [];
+					if (this.settings.collectionIds.includes(node.collection._id)) {
+						descendants.push(node);
+					}
+					node.children.forEach(child => {
+						descendants = descendants.concat(getSelectedDescendants(child));
+					});
+					return descendants;
+				};
+	
+				for (const rootNode of rootNodes) {
+					const selectedInTree = getSelectedDescendants(rootNode);
+					if (selectedInTree.length === 0) continue;
+	
+					let content = '';
+					let toc = '# Table of Contents\n';
+					
+					const processNode = async (node: CollectionNode, level: number): Promise<string> => {
+						let nodeContent = '';
+						if (!this.settings.collectionIds.includes(node.collection._id)) {
+							return '';
+						}
+						
+						const title = node.collection.title;
+						const sanitizedTitle = title.replace(/[\\/:"*?<>|]/g, '');
+						
+						toc += `${'  '.repeat(level-1)}- [[#${sanitizedTitle}]]\n`;
+						nodeContent += `${'#'.repeat(level)} ${sanitizedTitle}\n\n`;
+	
+						const raindrops = await getRaindrops(this.settings, node.collection._id);
+						if (raindrops && raindrops.length > 0) {
+							totalSyncedItems += raindrops.length;
+							const renderedRaindrops = raindrops.map(raindrop => template(raindrop).trim());
+							nodeContent += renderedRaindrops.join('\n') + '\n\n';
+						}
+	
+						for (const child of node.children) {
+							nodeContent += await processNode(child, level + 1);
+						}
+	
+						return nodeContent;
+					};
+					
+					content += await processNode(rootNode, 1);
+					
+					if (content) {
+						const finalContent = toc + '---\n\n' + content;
+						const fileName = `${rootNode.collection.title.replace(/[\\/:"*?<>|]/g, '')}.md`;
+						const filePath = `${folder}/${fileName}`;
+						await this.app.vault.adapter.write(filePath, finalContent);
+					}
+				}
+	
+				if (this.settings.collectionIds.includes(0)) {
+					let unsortedContent = `# Unsorted\n\n`;
+					const raindrops = await getRaindrops(this.settings, 0);
 					if (raindrops && raindrops.length > 0) {
 						totalSyncedItems += raindrops.length;
 						const renderedRaindrops = raindrops.map(raindrop => template(raindrop).trim());
-						nodeContent += renderedRaindrops.join('\n') + '\n\n';
+						unsortedContent += renderedRaindrops.join('\n');
 					}
-
-					for (const child of node.children) {
-						nodeContent += await processNode(child, level + 1);
-					}
-
-					return nodeContent;
-				};
-				
-				content += await processNode(rootNode, 1);
-				
-				if (content) {
-					const finalContent = toc + '---\n\n' + content;
-					const fileName = `${rootNode.collection.title.replace(/[\\/:"*?<>|]/g, '')}.md`;
-					const filePath = `${folder}/${fileName}`;
-					await this.app.vault.adapter.write(filePath, finalContent);
+					await this.app.vault.adapter.write(`${folder}/Unsorted.md`, unsortedContent);
 				}
+	
+				new Notice(`Sync complete. ${totalSyncedItems} items synced.`);
 			}
 
-			if (this.settings.collectionIds.includes(0)) {
-				let unsortedContent = `# Unsorted\n\n`;
-				const raindrops = await getRaindrops(this.settings, 0);
-				if (raindrops && raindrops.length > 0) {
-					totalSyncedItems += raindrops.length;
-					const renderedRaindrops = raindrops.map(raindrop => template(raindrop).trim());
-					unsortedContent += renderedRaindrops.join('\n');
-				}
-				await this.app.vault.adapter.write(`${folder}/Unsorted.md`, unsortedContent);
-			}
-
-			new Notice(`Sync complete. ${totalSyncedItems} items synced.`);
+			this.settings.lastSync = new Date().toISOString();
+			await this.saveSettings();
 
 		} catch (e) {
 			new Notice('A critical error occurred during sync. Check your settings and connection.');
@@ -376,14 +439,25 @@ export default class RaindropSyncPlugin extends Plugin {
 		}
 	}
 
-	async syncFileView() {
+	async syncFileView(incremental = false) {
 		if (!this.settings.collectionIds || this.settings.collectionIds.length === 0) {
 			new Notice('No collections selected to sync.');
 			return;
 		}
+
+		if (incremental && !this.settings.lastSync) {
+			new Notice('First sync, running a full sync.');
+			incremental = false;
+		}
+
+		const dataviewApi = (this.app as any).plugins.plugins.dataview?.api;
+		if (incremental && !dataviewApi) {
+			new Notice('Dataview plugin is required for incremental sync in File View. Please install and enable it.');
+			return;
+		}
 		
 		try {
-			new Notice('Syncing Raindrop bookmark files...');
+			new Notice(incremental ? 'Syncing new Raindrop bookmark files...' : 'Syncing Raindrop bookmark files...');
 
 			const allApiCollections = await getCollections(this.settings);
 			const template = Handlebars.compile(this.settings.fileViewTemplate);
@@ -417,56 +491,104 @@ export default class RaindropSyncPlugin extends Plugin {
 			if (!await this.app.vault.adapter.exists(fileViewFolder)) {
 				await this.app.vault.createFolder(fileViewFolder);
 			}
-			
-			let totalSyncedItems = 0;
-			const selectedCollections = allApiCollections.filter(c => this.settings.collectionIds.includes(c._id));
 
-			for (const collection of selectedCollections) {
-				const collectionFolder = `${fileViewFolder}/${this.sanitizeForPath(collection.title)}`;
-				if (!await this.app.vault.adapter.exists(collectionFolder)) {
-					await this.app.vault.createFolder(collectionFolder);
+			let totalSyncedItems = 0;
+
+			if (incremental) {
+				const raindropsToSync = [];
+				for (const collectionId of this.settings.collectionIds) {
+					const raindrops = await getRaindrops(this.settings, collectionId, this.settings.lastSync);
+					raindropsToSync.push(...raindrops);
+				}
+				
+				totalSyncedItems = raindropsToSync.length;
+				if (totalSyncedItems === 0) {
+					new Notice('No new items to sync.');
+					return;
 				}
 
-				const raindrops = await getRaindrops(this.settings, collection._id);
-				totalSyncedItems += raindrops.length;
-				for (const raindrop of raindrops) {
+				for (const raindrop of raindropsToSync) {
+					const pages = dataviewApi.pages().where((p: any) => p.raindropId === raindrop._id);
 					const [_, collectionPath] = getCollectionPath(raindrop.collection.$id);
-					const raindropWithContext = {
-						...raindrop,
-						collectionPath,
-					};
+
+					const raindropWithContext = { ...raindrop, collectionPath };
 					const renderedContent = template(raindropWithContext);
+					
+					const collectionName = collectionsMap.get(raindrop.collection.$id)?.title || 'Unsorted';
+					const collectionFolder = `${fileViewFolder}/${this.sanitizeForPath(collectionName)}`;
 					const fileName = `${this.sanitizeForFile(raindrop.title)}.md`;
 					const filePath = `${collectionFolder}/${fileName}`;
-					await this.app.vault.adapter.write(filePath, renderedContent);
-				}
-			}
 
-			// Handle "Unsorted" files creation separately
-			if (this.settings.collectionIds.includes(0)) {
-				const unsortedFolder = `${fileViewFolder}/Unsorted`;
-				if (!await this.app.vault.adapter.exists(unsortedFolder)) {
-					await this.app.vault.createFolder(unsortedFolder);
+					if (pages.length > 0) {
+						// Item exists, update it. We don't handle file moves/renames for simplicity.
+						const existingFilePath = pages[0].file.path;
+						await this.app.vault.adapter.write(existingFilePath, renderedContent);
+					} else {
+						// New item, create it
+						if (!await this.app.vault.adapter.exists(collectionFolder)) {
+							await this.app.vault.createFolder(collectionFolder);
+						}
+						await this.app.vault.adapter.write(filePath, renderedContent);
+					}
 				}
 
-				const raindrops = await getRaindrops(this.settings, 0);
-				totalSyncedItems += raindrops.length;
-				for (const raindrop of raindrops) {
-					const raindropWithContext = {
-						...raindrop,
-						collectionPath: 'Unsorted',
-					};
-					const renderedContent = template(raindropWithContext);
-					const fileName = `${this.sanitizeForFile(raindrop.title)}.md`;
-					const filePath = `${unsortedFolder}/${fileName}`;
-					await this.app.vault.adapter.write(filePath, renderedContent);
+			} else {
+				// Full Sync Logic
+				const selectedCollections = allApiCollections.filter(c => this.settings.collectionIds.includes(c._id));
+	
+				for (const collection of selectedCollections) {
+					const collectionFolder = `${fileViewFolder}/${this.sanitizeForPath(collection.title)}`;
+					if (!await this.app.vault.adapter.exists(collectionFolder)) {
+						await this.app.vault.createFolder(collectionFolder);
+					}
+	
+					const raindrops = await getRaindrops(this.settings, collection._id);
+					totalSyncedItems += raindrops.length;
+					for (const raindrop of raindrops) {
+						const [_, collectionPath] = getCollectionPath(raindrop.collection.$id);
+						const raindropWithContext = {
+							...raindrop,
+							collectionPath,
+						};
+						const renderedContent = template(raindropWithContext);
+						const fileName = `${this.sanitizeForFile(raindrop.title)}.md`;
+						const filePath = `${collectionFolder}/${fileName}`;
+						await this.app.vault.adapter.write(filePath, renderedContent);
+					}
+				}
+	
+				// Handle "Unsorted" files creation separately
+				if (this.settings.collectionIds.includes(0)) {
+					const unsortedFolder = `${fileViewFolder}/Unsorted`;
+					if (!await this.app.vault.adapter.exists(unsortedFolder)) {
+						await this.app.vault.createFolder(unsortedFolder);
+					}
+	
+					const raindrops = await getRaindrops(this.settings, 0);
+					totalSyncedItems += raindrops.length;
+					for (const raindrop of raindrops) {
+						const raindropWithContext = {
+							...raindrop,
+							collectionPath: 'Unsorted',
+						};
+						const renderedContent = template(raindropWithContext);
+						const fileName = `${this.sanitizeForFile(raindrop.title)}.md`;
+						const filePath = `${unsortedFolder}/${fileName}`;
+						await this.app.vault.adapter.write(filePath, renderedContent);
+					}
 				}
 			}
 
 			// After creating all files, regenerate the index
 			await this.generateFileViewIndex();
 			
-			new Notice(`Sync complete (File View). ${totalSyncedItems} items synced.`);
+			new Notice(incremental 
+				? `Incremental sync complete (File View). ${totalSyncedItems} items synced.`
+				: `Sync complete (File View). ${totalSyncedItems} items synced.`
+			);
+
+			this.settings.lastSync = new Date().toISOString();
+			await this.saveSettings();
 
 		} catch (e) {
 			new Notice('A critical error occurred during file sync. Check your settings and connection.');
