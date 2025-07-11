@@ -295,6 +295,7 @@ export default class RaindropSyncPlugin extends Plugin {
 				}
 			});
 
+			let totalSyncedItems = 0;
 			const folder = this.settings.storageFolder;
 			if (!await this.app.vault.adapter.exists(folder)) {
 				await this.app.vault.createFolder(folder);
@@ -334,6 +335,7 @@ export default class RaindropSyncPlugin extends Plugin {
 
 					const raindrops = await getRaindrops(this.settings, node.collection._id);
 					if (raindrops && raindrops.length > 0) {
+						totalSyncedItems += raindrops.length;
 						const renderedRaindrops = raindrops.map(raindrop => template(raindrop).trim());
 						nodeContent += renderedRaindrops.join('\n') + '\n\n';
 					}
@@ -359,13 +361,14 @@ export default class RaindropSyncPlugin extends Plugin {
 				let unsortedContent = `# Unsorted\n\n`;
 				const raindrops = await getRaindrops(this.settings, 0);
 				if (raindrops && raindrops.length > 0) {
+					totalSyncedItems += raindrops.length;
 					const renderedRaindrops = raindrops.map(raindrop => template(raindrop).trim());
 					unsortedContent += renderedRaindrops.join('\n');
 				}
 				await this.app.vault.adapter.write(`${folder}/Unsorted.md`, unsortedContent);
 			}
 
-			new Notice(`Sync complete.`);
+			new Notice(`Sync complete. ${totalSyncedItems} items synced.`);
 
 		} catch (e) {
 			new Notice('A critical error occurred during sync. Check your settings and connection.');
@@ -415,6 +418,7 @@ export default class RaindropSyncPlugin extends Plugin {
 				await this.app.vault.createFolder(fileViewFolder);
 			}
 			
+			let totalSyncedItems = 0;
 			const selectedCollections = allApiCollections.filter(c => this.settings.collectionIds.includes(c._id));
 
 			for (const collection of selectedCollections) {
@@ -424,6 +428,7 @@ export default class RaindropSyncPlugin extends Plugin {
 				}
 
 				const raindrops = await getRaindrops(this.settings, collection._id);
+				totalSyncedItems += raindrops.length;
 				for (const raindrop of raindrops) {
 					const [_, collectionPath] = getCollectionPath(raindrop.collection.$id);
 					const raindropWithContext = {
@@ -445,6 +450,7 @@ export default class RaindropSyncPlugin extends Plugin {
 				}
 
 				const raindrops = await getRaindrops(this.settings, 0);
+				totalSyncedItems += raindrops.length;
 				for (const raindrop of raindrops) {
 					const raindropWithContext = {
 						...raindrop,
@@ -460,7 +466,7 @@ export default class RaindropSyncPlugin extends Plugin {
 			// After creating all files, regenerate the index
 			await this.generateFileViewIndex();
 			
-			new Notice('Sync complete (File View).');
+			new Notice(`Sync complete (File View). ${totalSyncedItems} items synced.`);
 
 		} catch (e) {
 			new Notice('A critical error occurred during file sync. Check your settings and connection.');
