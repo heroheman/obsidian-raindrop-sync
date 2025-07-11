@@ -27,14 +27,30 @@
       </div>
     </div>
 
+    <h3>Highlight Settings</h3>
+    <div class="rebuild-hint">
+      Note: Changes to highlight settings require a full re-sync of the affected files.
+    </div>
     <div class="setting-item">
       <div class="setting-item-info">
-        <div class="setting-item-name">Markdown Highlights</div>
-        <div class="setting-item-description">Use <code>==highlight==</code> syntax for bookmark highlights.</div>
+        <div class="setting-item-name">Enable Highlights</div>
+        <div class="setting-item-description">Render bookmark highlights using <code>&lt;mark&gt;</code> tags or <code>==standard markdown==</code>.</div>
       </div>
       <div class="setting-item-control">
         <label class="switch">
           <input type="checkbox" v-model="localSettings.useMarkdownHighlights" @change="updateSettings">
+          <span class="slider round"></span>
+        </label>
+      </div>
+    </div>
+    <div class="setting-item">
+      <div class="setting-item-info">
+        <div class="setting-item-name">Colored Highlights</div>
+        <div class="setting-item-description">Apply "realistic" highlight colors from Raindrop.io. If disabled, a default yellow highlight is used.</div>
+      </div>
+      <div class="setting-item-control">
+        <label class="switch">
+          <input type="checkbox" v-model="localSettings.useColoredHighlights" @change="updateSettings">
           <span class="slider round"></span>
         </label>
       </div>

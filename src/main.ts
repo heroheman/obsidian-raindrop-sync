@@ -33,6 +33,7 @@ export interface RaindropSyncSettings {
 	showRibbonList: boolean;
 	showRibbonFile: boolean;
 	useMarkdownHighlights: boolean;
+	useColoredHighlights: boolean;
 }
 
 const DEFAULT_SETTINGS: RaindropSyncSettings = {
@@ -61,7 +62,7 @@ const DEFAULT_SETTINGS: RaindropSyncSettings = {
     {{#if highlights.length}}
     - **Highlights**:
       {{#each highlights}}
-        - {{formatHighlightText text}}
+        - {{formatHighlightText this}}
           {{#if note}}
             - *Note*:
 			    - {{formatText note}}*
@@ -97,7 +98,7 @@ collection: "[[{{collectionPath}}]]"
 {{#if highlights.length}}
 ## Highlights
 {{#each highlights}}
-- {{formatHighlightText text}}
+- {{formatHighlightText this}}
   {{#if note}}
     - *Note*: {{formatText note}}
   {{/if}}
@@ -107,6 +108,7 @@ collection: "[[{{collectionPath}}]]"
 	showRibbonList: true,
 	showRibbonFile: true,
 	useMarkdownHighlights: true,
+	useColoredHighlights: true,
 }
 
 export default class RaindropSyncPlugin extends Plugin {
@@ -141,12 +143,39 @@ export default class RaindropSyncPlugin extends Plugin {
 			return new Handlebars.SafeString(firstParagraph + (additionalParagraphs ? '\n' + additionalParagraphs : ''));
 		});
 
-		Handlebars.registerHelper('formatHighlightText', (text: string) => {
-			if (!text) return new Handlebars.SafeString('');
+		Handlebars.registerHelper('formatHighlightText', (highlight: unknown) => {
+			let text: string;
+			let color: string | undefined;
+
+			// Handle both string and object inputs for backward compatibility and flexibility
+			if (typeof highlight === 'string') {
+				text = highlight;
+			} else if (typeof highlight === 'object' && highlight !== null && 'text' in highlight) {
+				text = (highlight as {text: string}).text;
+				color = (highlight as {color?: string}).color;
+			} else {
+				return new Handlebars.SafeString('');
+			}
 			
-			// Apply markdown highlight if enabled
+			if (!this.settings.useMarkdownHighlights) {
+				return new Handlebars.SafeString(text);
+			}
+
+			// Use <mark> tags for highlights
 			const wrapInHighlight = (str: string) => {
-				return this.settings.useMarkdownHighlights ? `==${str}==` : str;
+				if (this.settings.useColoredHighlights && color) {
+					// Map raindrop colors to css classes
+					const colorMap: { [key: string]: string } = {
+						'red': 'coral',
+						'green': 'green',
+						'yellow': 'yellow',
+						'blue': 'blue',
+					};
+					const colorClass = colorMap[color] || 'yellow';
+					return `<mark class="${colorClass}">${str}</mark>`;
+				}
+				// Default to standard markdown highlight `==text==` which becomes <mark>
+				return `==${str}==`;
 			}
 
 			// Escape hashtags to prevent them from being interpreted as Obsidian tags

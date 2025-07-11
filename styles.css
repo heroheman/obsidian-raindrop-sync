@@ -1,4 +1,67 @@
 /* src/stalin.css */
+:root {
+  --fluro-yellow-rgb:
+    247,
+    235,
+    12;
+  --fluro-pink-rgb:
+    236,
+    46,
+    123;
+  --fluro-coral-rgb:
+    249,
+    92,
+    42;
+  --fluro-purple-rgb:
+    139,
+    90,
+    246;
+  --fluro-blue-rgb:
+    60,
+    148,
+    246;
+  --fluro-green-rgb:
+    4,
+    218,
+    137;
+}
+mark.yellow {
+  background-color: rgba(var(--fluro-yellow-rgb), 0.4);
+}
+mark.purple {
+  background-color: rgba(var(--fluro-purple-rgb), 0.4);
+}
+mark.blue {
+  background-color: rgba(var(--fluro-blue-rgb), 0.4);
+}
+mark.green {
+  background-color: rgba(var(--fluro-green-rgb), 0.4);
+}
+mark.coral {
+  background-color: rgba(var(--fluro-coral-rgb), 0.4);
+}
+mark.pink {
+  background-color: rgba(var(--fluro-pink-rgb), 0.4);
+}
+.cm-s-obsidian span.cm-highlight.yellow {
+  background-color: rgba(var(--fluro-yellow-rgb), 0.4);
+}
+.cm-s-obsidian span.cm-highlight.purple {
+  background-color: rgba(var(--fluro-purple-rgb), 0.4);
+}
+.cm-s-obsidian span.cm-highlight.blue {
+  background-color: rgba(var(--fluro-blue-rgb), 0.4);
+}
+.cm-s-obsidian span.cm-highlight.green {
+  background-color: rgba(var(--fluro-green-rgb), 0.4);
+}
+.cm-s-obsidian span.cm-highlight.coral {
+  background-color: rgba(var(--fluro-coral-rgb), 0.4);
+}
+.cm-s-obsidian span.cm-highlight.pink {
+  background-color: rgba(var(--fluro-pink-rgb), 0.4);
+}
+
 /* main.css */
 .collection-node[data-v-36f883ab] {
   margin-left: 20px;
