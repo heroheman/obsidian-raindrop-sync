@@ -30,6 +30,8 @@ export interface RaindropSyncSettings {
 	cascadeSelection: boolean;
 	template: string;
 	fileViewTemplate: string;
+	showRibbonList: boolean;
+	showRibbonFile: boolean;
 }
 
 const DEFAULT_SETTINGS: RaindropSyncSettings = {
@@ -101,6 +103,8 @@ collection: "[[{{collectionPath}}]]"
 {{/each}}
 {{/if}}
 `,
+	showRibbonList: true,
+	showRibbonFile: true,
 }
 
 export default class RaindropSyncPlugin extends Plugin {
@@ -180,11 +184,17 @@ export default class RaindropSyncPlugin extends Plugin {
 		});
 
 		// This adds a ribbon icon for quick access to sync
-		this.addRibbonIcon('refresh-cw', 'Sync Raindrop Bookmarks', (evt: MouseEvent) => {
-			// For now, the ribbon will trigger the list view sync.
-			// Later, this could open a dialog to choose.
-			this.syncListView();
-		});
+		if (this.settings.showRibbonList) {
+			this.addRibbonIcon('cloud-download', 'Sync Bookmarks (List View)', () => {
+				this.syncListView();
+			});
+		}
+
+		if (this.settings.showRibbonFile) {
+			this.addRibbonIcon('cloud-download', 'Sync Bookmarks (File View)', () => {
+				this.syncFileView();
+			});
+		}
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new RaindropSyncSettingTab(this.app, this));

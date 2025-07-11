@@ -7,3 +7,5 @@
 - [ ] hinweis das dataview gebraucht wird
 - [ ] double borders wegmachen
 - [?] dataview.js option? dann kein reload mehr
+- [ ] enable / disable ribbon and commands?
+- [ ] coffee link

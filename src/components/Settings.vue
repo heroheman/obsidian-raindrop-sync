@@ -73,6 +73,18 @@
       <h3>List View Settings</h3>
       <div class="setting-item">
         <div class="setting-item-info">
+          <div class="setting-item-name">Show Ribbon Icon</div>
+          <div class="setting-item-description">Display a ribbon icon to sync bookmarks using the List View. Requires a reload to take effect.</div>
+        </div>
+        <div class="setting-item-control">
+          <label class="switch">
+            <input type="checkbox" v-model="localSettings.showRibbonList" @change="updateSettings">
+            <span class="slider round"></span>
+          </label>
+        </div>
+      </div>
+      <div class="setting-item">
+        <div class="setting-item-info">
           <div class="setting-item-name">Storage Folder</div>
           <div class="setting-item-description">The folder where your Raindrop bookmarks file will be stored.</div>
         </div>
@@ -100,6 +112,18 @@
 
     <div v-if="settingsView === 'file'">
       <h3>File View Settings</h3>
+      <div class="setting-item">
+        <div class="setting-item-info">
+          <div class="setting-item-name">Show Ribbon Icon</div>
+          <div class="setting-item-description">Display a ribbon icon to sync bookmarks using the File View. Requires a reload to take effect.</div>
+        </div>
+        <div class="setting-item-control">
+          <label class="switch">
+            <input type="checkbox" v-model="localSettings.showRibbonFile" @change="updateSettings">
+            <span class="slider round"></span>
+          </label>
+        </div>
+      </div>
       <div class="setting-item">
         <div class="setting-item-info">
           <div class="setting-item-name">Items Storage Folder</div>
