@@ -4,6 +4,9 @@
       <span class="node-toggle-icon" v-if="node.children.length > 0" @click="emit('toggle-expand', node.collection._id)">
         {{ isExpanded ? '▼' : '▶' }}
       </span>
+      <span class="node-toggle-icon" v-else>
+		&nbsp;
+      </span>
       <img v-if="node.collection.cover?.length > 0" :src="node.collection.cover[0]" class="collection-icon" />
       <div class="node-name">{{ node.collection.title }}</div>
       <div v-if="node.children.length > 0" class="collection-counter">({{ node.children.length }})</div>
@@ -70,7 +73,7 @@ const isSelected = computed(() => {
 
 <style scoped>
 .collection-node {
-  margin-left: 20px;
+  margin-left: 10px;
 }
 .node-self {
   display: flex;
