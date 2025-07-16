@@ -399,21 +399,32 @@ export default class RaindropSyncPlugin extends Plugin {
 						const title = node.collection.title;
 						const sanitizedTitle = title.replace(/[\\/:"*?<>|]/g, '');
 
-						toc += `${'  '.repeat(level-1)}- [[#${sanitizedTitle}]]\n`;
-						nodeContent += `${'#'.repeat(level)} ${sanitizedTitle}\n\n`;
-
 						let raindrops = await getRaindrops(this.settings, node.collection._id);
 						if (highlightIdSet) {
 							raindrops = raindrops.filter(r => highlightIdSet!.has(r._id));
 						}
-						if (raindrops && raindrops.length > 0) {
-							totalSyncedItems += raindrops.length;
-							const renderedRaindrops = raindrops.map(raindrop => template(raindrop).trim());
-							nodeContent += renderedRaindrops.join('\n') + '\n\n';
+
+						// Sammle Content von Kindern
+						let childrenContent = '';
+						for (const child of node.children) {
+							childrenContent += await processNode(child, level + 1);
 						}
 
-						for (const child of node.children) {
-							nodeContent += await processNode(child, level + 1);
+						// Nur Content generieren wenn diese Collection oder ihre Kinder Bookmarks haben
+						const hasBookmarks = raindrops && raindrops.length > 0;
+						const hasChildrenContent = childrenContent.trim().length > 0;
+
+						if (hasBookmarks || hasChildrenContent) {
+							toc += `${'  '.repeat(level-1)}- [[#${sanitizedTitle}]]\n`;
+							nodeContent += `${'#'.repeat(level)} ${sanitizedTitle}\n\n`;
+
+							if (hasBookmarks) {
+								totalSyncedItems += raindrops.length;
+								const renderedRaindrops = raindrops.map(raindrop => template(raindrop).trim());
+								nodeContent += renderedRaindrops.join('\n') + '\n\n';
+							}
+
+							nodeContent += childrenContent;
 						}
 
 						return nodeContent;
@@ -430,17 +441,17 @@ export default class RaindropSyncPlugin extends Plugin {
 				}
 
 				if (this.settings.collectionIds.includes(0)) {
-					let unsortedContent = `# Unsorted\n\n`;
 					let raindrops = await getRaindrops(this.settings, 0);
 					if (highlightIdSet) {
 						raindrops = raindrops.filter(r => highlightIdSet!.has(r._id));
 					}
 					if (raindrops && raindrops.length > 0) {
+						let unsortedContent = `# Unsorted\n\n`;
 						totalSyncedItems += raindrops.length;
 						const renderedRaindrops = raindrops.map(raindrop => template(raindrop).trim());
 						unsortedContent += renderedRaindrops.join('\n');
+						await this.app.vault.adapter.write(`${folder}/Unsorted.md`, unsortedContent);
 					}
-					await this.app.vault.adapter.write(`${folder}/Unsorted.md`, unsortedContent);
 				}
 
 				new Notice(`Sync complete. ${totalSyncedItems} items synced.`);
@@ -563,50 +574,58 @@ export default class RaindropSyncPlugin extends Plugin {
 				const selectedCollections = allApiCollections.filter(c => this.settings.collectionIds.includes(c._id));
 
 				for (const collection of selectedCollections) {
-					const collectionFolder = `${fileViewFolder}/${this.sanitizeForPath(collection.title)}`;
-					if (!await this.app.vault.adapter.exists(collectionFolder)) {
-						await this.app.vault.createFolder(collectionFolder);
-					}
-
 					let raindrops = await getRaindrops(this.settings, collection._id);
 					if (highlightIdSet) {
 						raindrops = raindrops.filter(r => highlightIdSet!.has(r._id));
 					}
-					totalSyncedItems += raindrops.length;
-					for (const raindrop of raindrops) {
-						const [_, collectionPath] = getCollectionPath(raindrop.collection.$id);
-						const raindropWithContext = {
-							...raindrop,
-							collectionPath,
-						};
-						const renderedContent = template(raindropWithContext);
-						const fileName = `${this.sanitizeForFile(raindrop.title)}.md`;
-						const filePath = `${collectionFolder}/${fileName}`;
-						await this.app.vault.adapter.write(filePath, renderedContent);
+					
+					// Nur Ordner erstellen und Dateien schreiben wenn Bookmarks vorhanden
+					if (raindrops && raindrops.length > 0) {
+						const collectionFolder = `${fileViewFolder}/${this.sanitizeForPath(collection.title)}`;
+						if (!await this.app.vault.adapter.exists(collectionFolder)) {
+							await this.app.vault.createFolder(collectionFolder);
+						}
+
+						totalSyncedItems += raindrops.length;
+						for (const raindrop of raindrops) {
+							const [_, collectionPath] = getCollectionPath(raindrop.collection.$id);
+							const raindropWithContext = {
+								...raindrop,
+								collectionPath,
+							};
+							const renderedContent = template(raindropWithContext);
+							const fileName = `${this.sanitizeForFile(raindrop.title)}.md`;
+							const filePath = `${collectionFolder}/${fileName}`;
+							await this.app.vault.adapter.write(filePath, renderedContent);
+						}
 					}
 				}
 
 				// Handle "Unsorted" files creation separately
 				if (this.settings.collectionIds.includes(0)) {
-					const unsortedFolder = `${fileViewFolder}/Unsorted`;
-					if (!await this.app.vault.adapter.exists(unsortedFolder)) {
-						await this.app.vault.createFolder(unsortedFolder);
-					}
-
 					let raindrops = await getRaindrops(this.settings, 0);
 					if (highlightIdSet) {
 						raindrops = raindrops.filter(r => highlightIdSet!.has(r._id));
 					}
-					totalSyncedItems += raindrops.length;
-					for (const raindrop of raindrops) {
-						const raindropWithContext = {
-							...raindrop,
-							collectionPath: 'Unsorted',
-						};
-						const renderedContent = template(raindropWithContext);
-						const fileName = `${this.sanitizeForFile(raindrop.title)}.md`;
-						const filePath = `${unsortedFolder}/${fileName}`;
-						await this.app.vault.adapter.write(filePath, renderedContent);
+					
+					// Nur Ordner erstellen wenn Bookmarks vorhanden
+					if (raindrops && raindrops.length > 0) {
+						const unsortedFolder = `${fileViewFolder}/Unsorted`;
+						if (!await this.app.vault.adapter.exists(unsortedFolder)) {
+							await this.app.vault.createFolder(unsortedFolder);
+						}
+
+						totalSyncedItems += raindrops.length;
+						for (const raindrop of raindrops) {
+							const raindropWithContext = {
+								...raindrop,
+								collectionPath: 'Unsorted',
+							};
+							const renderedContent = template(raindropWithContext);
+							const fileName = `${this.sanitizeForFile(raindrop.title)}.md`;
+							const filePath = `${unsortedFolder}/${fileName}`;
+							await this.app.vault.adapter.write(filePath, renderedContent);
+						}
 					}
 				}
 			}
@@ -669,34 +688,59 @@ export default class RaindropSyncPlugin extends Plugin {
 				}
 				
 				const title = node.collection.title;
-				
-				toc += `${'  '.repeat(level-1)}- [[#${title}]]\n`;
-				content += `${'#'.repeat(level)} ${title}\n\n`;
-
 				const fromClause = `"${fileViewFolder}/${this.sanitizeForPath(node.collection.title)}"`;
 				
-				const dvSettings = this.settings.fileViewDataviewColumns;
-				const columns = [];
-				if (dvSettings.cover) {
-					columns.push(`choice(length(cover) > 0, "<img src='" + cover + "' width='60'>", "") as "Cover"`);
+				// Prüfe ob der Collection-Ordner existiert und Dateien enthält
+				const collectionFolder = `${fileViewFolder}/${this.sanitizeForPath(node.collection.title)}`;
+				let hasFiles = false;
+				if (await this.app.vault.adapter.exists(collectionFolder)) {
+					try {
+						const files = await this.app.vault.adapter.list(collectionFolder);
+						hasFiles = files.files && files.files.length > 0;
+					} catch (e) {
+						hasFiles = false;
+					}
 				}
-				columns.push('elink(url, title) as "Title"');
-				if (dvSettings.tags) {
-					columns.push('tags as "Tags"');
-				}
-				if (dvSettings.highlights) {
-					columns.push('choice(hasHighlights, "✅", "❌") as "Highlights"');
-				}
-				if (dvSettings.notes) {
-					columns.push('choice(hasNotes, "✅", "❌") as "Notes"');
-				}
-				if (dvSettings.type) {
-					columns.push('raindropType as "Type"');
-				}
-				columns.push('link(file.path, "show") as "Detail"');
-				const tableCols = columns.join(',\n    ');
 
-				content += `
+				// Sammle Content von Kindern
+				let childrenToc = '';
+				let childrenContent = '';
+				for (const child of node.children) {
+					const [childToc, childContent] = await processNode(child, level + 1);
+					childrenToc += childToc;
+					childrenContent += childContent;
+				}
+
+				const hasChildrenContent = childrenContent.trim().length > 0;
+
+				// Nur Content generieren wenn diese Collection Dateien hat oder Kinder Content haben
+				if (hasFiles || hasChildrenContent) {
+					toc += `${'  '.repeat(level-1)}- [[#${title}]]\n`;
+					content += `${'#'.repeat(level)} ${title}\n\n`;
+
+					if (hasFiles) {
+						const dvSettings = this.settings.fileViewDataviewColumns;
+						const columns = [];
+						if (dvSettings.cover) {
+							columns.push(`choice(length(cover) > 0, "<img src='" + cover + "' width='60'>", "") as "Cover"`);
+						}
+						columns.push('elink(url, title) as "Title"');
+						if (dvSettings.tags) {
+							columns.push('tags as "Tags"');
+						}
+						if (dvSettings.highlights) {
+							columns.push('choice(hasHighlights, "✅", "❌") as "Highlights"');
+						}
+						if (dvSettings.notes) {
+							columns.push('choice(hasNotes, "✅", "❌") as "Notes"');
+						}
+						if (dvSettings.type) {
+							columns.push('raindropType as "Type"');
+						}
+						columns.push('link(file.path, "show") as "Detail"');
+						const tableCols = columns.join(',\n    ');
+
+						content += `
 \`\`\`dataview
 TABLE WITHOUT ID
     ${tableCols}
@@ -704,11 +748,10 @@ FROM ${fromClause}
 SORT file.ctime DESC
 \`\`\`
 \n`;
+					}
 
-				for (const child of node.children) {
-					const [childToc, childContent] = await processNode(child, level + 1);
-					toc += childToc;
-					content += childContent;
+					toc += childrenToc;
+					content += childrenContent;
 				}
 
 				return [toc, content];
@@ -729,28 +772,41 @@ SORT file.ctime DESC
 			if (this.settings.collectionIds.includes(0)) {
 				const unsortedFolder = `${fileViewFolder}/Unsorted`;
 				
-				const dvSettings = this.settings.fileViewDataviewColumns;
-				const columns = [];
-				if (dvSettings.cover) {
-					columns.push(`choice(length(cover) > 0, "<img src='" + cover + "' width='60'>", "") as "Cover"`);
+				// Prüfe ob der Unsorted-Ordner existiert und Dateien enthält
+				let hasFiles = false;
+				if (await this.app.vault.adapter.exists(unsortedFolder)) {
+					try {
+						const files = await this.app.vault.adapter.list(unsortedFolder);
+						hasFiles = files.files && files.files.length > 0;
+					} catch (e) {
+						hasFiles = false;
+					}
 				}
-				columns.push('elink(url, title) as "Title"');
-				if (dvSettings.tags) {
-					columns.push('tags as "Tags"');
-				}
-				if (dvSettings.highlights) {
-					columns.push('choice(hasHighlights, "✅", "❌") as "Highlights"');
-				}
-				if (dvSettings.notes) {
-					columns.push('choice(hasNotes, "✅", "❌") as "Notes"');
-				}
-				if (dvSettings.type) {
-					columns.push('raindropType as "Type"');
-				}
-				columns.push('link(file.path, "show") as "Detail"');
-				const tableCols = columns.join(',\n    ');
 
-				const dataviewContent = `
+				// Nur Index-Datei erstellen wenn Dateien vorhanden
+				if (hasFiles) {
+					const dvSettings = this.settings.fileViewDataviewColumns;
+					const columns = [];
+					if (dvSettings.cover) {
+						columns.push(`choice(length(cover) > 0, "<img src='" + cover + "' width='60'>", "") as "Cover"`);
+					}
+					columns.push('elink(url, title) as "Title"');
+					if (dvSettings.tags) {
+						columns.push('tags as "Tags"');
+					}
+					if (dvSettings.highlights) {
+						columns.push('choice(hasHighlights, "✅", "❌") as "Highlights"');
+					}
+					if (dvSettings.notes) {
+						columns.push('choice(hasNotes, "✅", "❌") as "Notes"');
+					}
+					if (dvSettings.type) {
+						columns.push('raindropType as "Type"');
+					}
+					columns.push('link(file.path, "show") as "Detail"');
+					const tableCols = columns.join(',\n    ');
+
+					const dataviewContent = `
 \`\`\`dataview
 TABLE WITHOUT ID
     ${tableCols}
@@ -758,8 +814,9 @@ FROM "${unsortedFolder}"
 SORT file.ctime DESC
 \`\`\`
 `;
-				const filePath = `${indexFolder}/Unsorted.md`;
-				await this.app.vault.adapter.write(filePath, dataviewContent.trim());
+					const filePath = `${indexFolder}/Unsorted.md`;
+					await this.app.vault.adapter.write(filePath, dataviewContent.trim());
+				}
 			}
 
 			new Notice('File view index regenerated.');
