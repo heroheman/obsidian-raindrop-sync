@@ -526,6 +526,10 @@ export default class RaindropSyncPlugin extends Plugin {
 				await this.app.vault.createFolder(fileViewFolder);
 			}
 
+			if (!await this.app.vault.adapter.exists(fileViewFolder)) {
+				await this.app.vault.createFolder(fileViewFolder);
+			}
+
 			let totalSyncedItems = 0;
 
 			if (incremental) {
@@ -571,6 +575,10 @@ export default class RaindropSyncPlugin extends Plugin {
 
 			} else {
 				// Full Sync Logic
+				if (!await this.app.vault.adapter.exists(fileViewFolder)) {
+					await this.app.vault.createFolder(fileViewFolder);
+				}
+
 				const selectedCollections = allApiCollections.filter(c => this.settings.collectionIds.includes(c._id));
 
 				for (const collection of selectedCollections) {
@@ -675,6 +683,10 @@ export default class RaindropSyncPlugin extends Plugin {
 
 			const fileViewFolder = this.settings.fileViewStorageFolder;
 			const indexFolder = this.settings.fileViewIndexFolder;
+			
+			if (!await this.app.vault.adapter.exists(fileViewFolder)) {
+				await this.app.vault.createFolder(fileViewFolder);
+			}
 			if (!await this.app.vault.adapter.exists(indexFolder)) {
 				await this.app.vault.createFolder(indexFolder);
 			}
