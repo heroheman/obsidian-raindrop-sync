@@ -36,7 +36,7 @@ export interface RaindropSyncSettings {
 	useMarkdownHighlights: boolean;
 	useColoredHighlights: boolean;
 	lastSync?: string;
-	// onlyBookmarksWithHighlights: boolean;
+	onlyBookmarksWithHighlights: boolean;
 }
 
 const DEFAULT_SETTINGS: RaindropSyncSettings = {
@@ -113,7 +113,7 @@ collection: "[[{{collectionPath}}]]"
 	useMarkdownHighlights: true,
 	useColoredHighlights: true,
 	lastSync: undefined,
-	// onlyBookmarksWithHighlights: false,
+	onlyBookmarksWithHighlights: false,
 }
 
 export default class RaindropSyncPlugin extends Plugin {
@@ -294,7 +294,7 @@ export default class RaindropSyncPlugin extends Plugin {
 			new Notice('First sync, running a full sync.');
 			incremental = false;
 		}
-		
+
 		try {
 			new Notice(incremental ? 'Syncing new Raindrop bookmarks...' : 'Syncing Raindrop bookmarks...');
 
@@ -302,10 +302,20 @@ export default class RaindropSyncPlugin extends Plugin {
 			const collectionsMap = new Map(allApiCollections.map(c => [c._id, c]));
 			const template = Handlebars.compile(this.settings.template);
 
+			// Highlight-IDs global holen, falls Filter aktiv
+			let highlightIdSet: Set<number> | undefined = undefined;
+			if (this.settings.onlyBookmarksWithHighlights) {
+				const { getAllHighlightRaindropIds } = await import('./api');
+				highlightIdSet = await getAllHighlightRaindropIds(this.settings);
+			}
+
 			if (incremental) {
 				let allNewRaindrops: RaindropItem[] = [];
 				for (const collectionId of this.settings.collectionIds) {
-					const raindrops = await getRaindrops(this.settings, collectionId, this.settings.lastSync);
+					let raindrops = await getRaindrops(this.settings, collectionId, this.settings.lastSync);
+					if (highlightIdSet) {
+						raindrops = raindrops.filter(r => highlightIdSet!.has(r._id));
+					}
 					allNewRaindrops.push(...raindrops);
 				}
 
@@ -328,11 +338,11 @@ export default class RaindropSyncPlugin extends Plugin {
 					content += `## ${collectionName}\n\n`;
 					content += items.map(item => template(item).trim()).join('\n') + '\n\n';
 				}
-				
+                
 				const folder = this.settings.storageFolder;
 				const fileName = `Incremental Sync - ${new Date().toISOString().slice(0, 10)}.md`;
 				const filePath = `${folder}/${fileName}`;
-				
+                
 				if (!await this.app.vault.adapter.exists(folder)) {
 					await this.app.vault.createFolder(folder);
 				}
@@ -345,7 +355,7 @@ export default class RaindropSyncPlugin extends Plugin {
 				allApiCollections.forEach(c => {
 					nodes[c._id] = { collection: c, children: [] };
 				});
-	
+
 				const rootNodes: CollectionNode[] = [];
 				allApiCollections.forEach(c => {
 					const parentId = c.parent?.$id;
@@ -355,13 +365,13 @@ export default class RaindropSyncPlugin extends Plugin {
 						rootNodes.push(nodes[c._id]);
 					}
 				});
-	
+
 				let totalSyncedItems = 0;
 				const folder = this.settings.storageFolder;
 				if (!await this.app.vault.adapter.exists(folder)) {
 					await this.app.vault.createFolder(folder);
 				}
-	
+
 				const getSelectedDescendants = (node: CollectionNode): CollectionNode[] => {
 					let descendants: CollectionNode[] = [];
 					if (this.settings.collectionIds.includes(node.collection._id)) {
@@ -372,42 +382,45 @@ export default class RaindropSyncPlugin extends Plugin {
 					});
 					return descendants;
 				};
-	
+
 				for (const rootNode of rootNodes) {
 					const selectedInTree = getSelectedDescendants(rootNode);
 					if (selectedInTree.length === 0) continue;
-	
+
 					let content = '';
 					let toc = '# Table of Contents\n';
-					
+
 					const processNode = async (node: CollectionNode, level: number): Promise<string> => {
 						let nodeContent = '';
 						if (!this.settings.collectionIds.includes(node.collection._id)) {
 							return '';
 						}
-						
+
 						const title = node.collection.title;
 						const sanitizedTitle = title.replace(/[\\/:"*?<>|]/g, '');
-						
+
 						toc += `${'  '.repeat(level-1)}- [[#${sanitizedTitle}]]\n`;
 						nodeContent += `${'#'.repeat(level)} ${sanitizedTitle}\n\n`;
-	
-						const raindrops = await getRaindrops(this.settings, node.collection._id);
+
+						let raindrops = await getRaindrops(this.settings, node.collection._id);
+						if (highlightIdSet) {
+							raindrops = raindrops.filter(r => highlightIdSet!.has(r._id));
+						}
 						if (raindrops && raindrops.length > 0) {
 							totalSyncedItems += raindrops.length;
 							const renderedRaindrops = raindrops.map(raindrop => template(raindrop).trim());
 							nodeContent += renderedRaindrops.join('\n') + '\n\n';
 						}
-	
+
 						for (const child of node.children) {
 							nodeContent += await processNode(child, level + 1);
 						}
-	
+
 						return nodeContent;
 					};
-					
+
 					content += await processNode(rootNode, 1);
-					
+
 					if (content) {
 						const finalContent = toc + '---\n\n' + content;
 						const fileName = `${rootNode.collection.title.replace(/[\\/:"*?<>|]/g, '')}.md`;
@@ -415,10 +428,13 @@ export default class RaindropSyncPlugin extends Plugin {
 						await this.app.vault.adapter.write(filePath, finalContent);
 					}
 				}
-	
+
 				if (this.settings.collectionIds.includes(0)) {
 					let unsortedContent = `# Unsorted\n\n`;
-					const raindrops = await getRaindrops(this.settings, 0);
+					let raindrops = await getRaindrops(this.settings, 0);
+					if (highlightIdSet) {
+						raindrops = raindrops.filter(r => highlightIdSet!.has(r._id));
+					}
 					if (raindrops && raindrops.length > 0) {
 						totalSyncedItems += raindrops.length;
 						const renderedRaindrops = raindrops.map(raindrop => template(raindrop).trim());
@@ -426,7 +442,7 @@ export default class RaindropSyncPlugin extends Plugin {
 					}
 					await this.app.vault.adapter.write(`${folder}/Unsorted.md`, unsortedContent);
 				}
-	
+
 				new Notice(`Sync complete. ${totalSyncedItems} items synced.`);
 			}
 
@@ -455,13 +471,20 @@ export default class RaindropSyncPlugin extends Plugin {
 			new Notice('Dataview plugin is required for incremental sync in File View. Please install and enable it.');
 			return;
 		}
-		
+
 		try {
 			new Notice(incremental ? 'Syncing new Raindrop bookmark files...' : 'Syncing Raindrop bookmark files...');
 
 			const allApiCollections = await getCollections(this.settings);
 			const template = Handlebars.compile(this.settings.fileViewTemplate);
 			const fileViewFolder = this.settings.fileViewStorageFolder;
+
+			// Highlight-IDs global holen, falls Filter aktiv
+			let highlightIdSet: Set<number> | undefined = undefined;
+			if (this.settings.onlyBookmarksWithHighlights) {
+				const { getAllHighlightRaindropIds } = await import('./api');
+				highlightIdSet = await getAllHighlightRaindropIds(this.settings);
+			}
 
 			// Create a map for quick lookups
 			const collectionsMap = new Map(allApiCollections.map(c => [c._id, c]));
@@ -482,7 +505,7 @@ export default class RaindropSyncPlugin extends Plugin {
 						current = undefined;
 					}
 				}
-				
+                
 				const pathString = path.join(' > ');
 				const linkPath = `${this.sanitizeForFile(rootCollection.title)}#${path[path.length - 1]}`;
 				return [pathString, linkPath];
@@ -497,10 +520,13 @@ export default class RaindropSyncPlugin extends Plugin {
 			if (incremental) {
 				const raindropsToSync = [];
 				for (const collectionId of this.settings.collectionIds) {
-					const raindrops = await getRaindrops(this.settings, collectionId, this.settings.lastSync);
+					let raindrops = await getRaindrops(this.settings, collectionId, this.settings.lastSync);
+					if (highlightIdSet) {
+						raindrops = raindrops.filter(r => highlightIdSet!.has(r._id));
+					}
 					raindropsToSync.push(...raindrops);
 				}
-				
+                
 				totalSyncedItems = raindropsToSync.length;
 				if (totalSyncedItems === 0) {
 					new Notice('No new items to sync.');
@@ -513,7 +539,7 @@ export default class RaindropSyncPlugin extends Plugin {
 
 					const raindropWithContext = { ...raindrop, collectionPath };
 					const renderedContent = template(raindropWithContext);
-					
+                    
 					const collectionName = collectionsMap.get(raindrop.collection.$id)?.title || 'Unsorted';
 					const collectionFolder = `${fileViewFolder}/${this.sanitizeForPath(collectionName)}`;
 					const fileName = `${this.sanitizeForFile(raindrop.title)}.md`;
@@ -535,14 +561,17 @@ export default class RaindropSyncPlugin extends Plugin {
 			} else {
 				// Full Sync Logic
 				const selectedCollections = allApiCollections.filter(c => this.settings.collectionIds.includes(c._id));
-	
+
 				for (const collection of selectedCollections) {
 					const collectionFolder = `${fileViewFolder}/${this.sanitizeForPath(collection.title)}`;
 					if (!await this.app.vault.adapter.exists(collectionFolder)) {
 						await this.app.vault.createFolder(collectionFolder);
 					}
-	
-					const raindrops = await getRaindrops(this.settings, collection._id);
+
+					let raindrops = await getRaindrops(this.settings, collection._id);
+					if (highlightIdSet) {
+						raindrops = raindrops.filter(r => highlightIdSet!.has(r._id));
+					}
 					totalSyncedItems += raindrops.length;
 					for (const raindrop of raindrops) {
 						const [_, collectionPath] = getCollectionPath(raindrop.collection.$id);
@@ -556,15 +585,18 @@ export default class RaindropSyncPlugin extends Plugin {
 						await this.app.vault.adapter.write(filePath, renderedContent);
 					}
 				}
-	
+
 				// Handle "Unsorted" files creation separately
 				if (this.settings.collectionIds.includes(0)) {
 					const unsortedFolder = `${fileViewFolder}/Unsorted`;
 					if (!await this.app.vault.adapter.exists(unsortedFolder)) {
 						await this.app.vault.createFolder(unsortedFolder);
 					}
-	
-					const raindrops = await getRaindrops(this.settings, 0);
+
+					let raindrops = await getRaindrops(this.settings, 0);
+					if (highlightIdSet) {
+						raindrops = raindrops.filter(r => highlightIdSet!.has(r._id));
+					}
 					totalSyncedItems += raindrops.length;
 					for (const raindrop of raindrops) {
 						const raindropWithContext = {
@@ -581,7 +613,7 @@ export default class RaindropSyncPlugin extends Plugin {
 
 			// After creating all files, regenerate the index
 			await this.generateFileViewIndex();
-			
+            
 			new Notice(incremental 
 				? `Incremental sync complete (File View). ${totalSyncedItems} items synced.`
 				: `Sync complete (File View). ${totalSyncedItems} items synced.`

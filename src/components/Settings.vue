@@ -27,7 +27,7 @@
         <button @click="clearLastSync" class="mod-warning" v-if="localSettings.lastSync">Clear</button>
       </div>
     </div>
-    <!-- <div class="setting-item">
+    <div class="setting-item">
       <div class="setting-item-info">
         <div class="setting-item-name">Sync only bookmarks with highlights</div>
         <div class="setting-item-description">
@@ -40,7 +40,7 @@
           <span class="slider round"></span>
         </label>
       </div>
-    </div> -->
+    </div>
 
     <!-- Collections Settings -->
     <h3>Collections</h3>

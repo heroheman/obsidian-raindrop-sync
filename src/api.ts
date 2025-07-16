@@ -1,3 +1,24 @@
+// Hole alle Highlights global und gib ein Set der Raindrop-IDs zurück, die Highlights haben
+export const getAllHighlightRaindropIds = async (settings: RaindropSyncSettings): Promise<Set<number>> => {
+    if (!settings.apiToken) {
+        throw new Error('Raindrop API token is not set.');
+    }
+    const url = `${API_BASE_URL}/highlights`;
+    const resp = await requestUrl({
+        url,
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${settings.apiToken}` }
+    });
+    if (resp.status !== 200) {
+        throw new Error(`Failed to fetch highlights: ${resp.status}`);
+    }
+    const highlightItems = resp.json.items || [];
+    const raindropIds = new Set<number>();
+    for (const h of highlightItems) {
+        if (h.raindropRef) raindropIds.add(h.raindropRef);
+    }
+    return raindropIds;
+};
 import { requestUrl } from 'obsidian';
 import { RaindropSyncSettings } from './main';
 
@@ -70,6 +91,7 @@ export const getCollections = async (settings: RaindropSyncSettings): Promise<Ra
     return Array.from(collectionMap.values());
 };
 
+
 export const getRaindrops = async (settings: RaindropSyncSettings, collectionId: number, since?: string): Promise<RaindropItem[]> => {
     if (!settings.apiToken) {
         throw new Error('Raindrop API token is not set.');
@@ -78,16 +100,59 @@ export const getRaindrops = async (settings: RaindropSyncSettings, collectionId:
     // A collectionId of 0 or -1 typically refers to "Unsorted" bookmarks
     const effectiveCollectionId = collectionId === 0 ? -1 : collectionId;
 
+    // Wenn nur Bookmarks mit Highlights gewünscht sind, nutze den Highlights-Endpoint
+    if (settings.onlyBookmarksWithHighlights) {
+        // 1. Alle Highlights für die Collection holen
+        const highlightsUrl = `${API_BASE_URL}/highlights/${effectiveCollectionId}`;
+		console.log('Fetching highlights from:', highlightsUrl);
+
+        const highlightsResp = await requestUrl({
+            url: highlightsUrl,
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${settings.apiToken}` }
+        });
+        if (highlightsResp.status !== 200) {
+            throw new Error(`Failed to fetch highlights: ${highlightsResp.status}`);
+        }
+        const highlightItems = highlightsResp.json.items || [];
+		console.log(`Found ${highlightItems.length} highlights for collection ${effectiveCollectionId}`);
+
+        // 2. Eindeutige Raindrop-IDs extrahieren
+        const raindropIds = Array.from(new Set(highlightItems.map((h: any) => h.raindropRef).filter(Boolean)));
+        if (raindropIds.length === 0) return [];
+
+        // 3. Bookmarks einzeln abrufen (API hat keinen Batch-GET)
+        const bookmarks: RaindropItem[] = [];
+        for (const id of raindropIds) {
+            try {
+                const resp = await requestUrl({
+                    url: `${API_BASE_URL}/raindrop/${id}`,
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${settings.apiToken}` }
+                });
+                if (resp.status === 200 && resp.json && resp.json.item) {
+                    // since-Filter ggf. anwenden
+                    if (since) {
+                        const lastUpdate = resp.json.item.lastUpdate || resp.json.item.created;
+                        if (lastUpdate && lastUpdate < since) continue;
+                    }
+                    bookmarks.push(resp.json.item);
+                }
+            } catch (e) {
+                // Einzelne Fehler ignorieren, Rest weiterverarbeiten
+                continue;
+            }
+        }
+        return bookmarks;
+    }
+
+    // Standard: alle Bookmarks der Collection holen
     let url = `${API_BASE_URL}/raindrops/${effectiveCollectionId}`;
     const params = new URLSearchParams();
 
     if (since) {
         params.append('search', `lastUpdate:>${since.slice(0, 10)}`);
     }
-
-    // if (settings.onlyBookmarksWithHighlights) {
-    //     params.append('search', 'has:highlight');
-    // }
 
     const paramString = params.toString();
     if (paramString) {
@@ -110,4 +175,4 @@ export const getRaindrops = async (settings: RaindropSyncSettings, collectionId:
     }
 
     throw new Error(`Failed to fetch raindrops: ${response.status}`);
-} 
+};
