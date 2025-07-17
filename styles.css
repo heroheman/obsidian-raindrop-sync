@@ -186,6 +186,35 @@ input:checked + .slider[data-v-36f883ab]:before {
 .slider.round[data-v-36f883ab]:before {
   border-radius: 50%;
 }
+.settings-toc[data-v-05e49569] {
+  margin: 20px 0 30px 0;
+  padding: 12px 18px;
+  background: var(--background-secondary);
+  border-radius: 6px;
+  border: 1px solid var(--background-modifier-border);
+  font-size: 1em;
+}
+.settings-toc ul[data-v-05e49569] {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+.settings-toc li[data-v-05e49569] {
+  margin: 0;
+}
+.settings-toc a[data-v-05e49569] {
+  color: var(--text-accent);
+  text-decoration: underline;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.settings-toc a[data-v-05e49569]:hover {
+  color: var(--interactive-accent);
+}
 .token-row[data-v-05e49569] {
   display: flex;
   align-items: center;

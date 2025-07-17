@@ -367,10 +367,12 @@ export default class RaindropSyncPlugin extends Plugin {
 	}
 
 	private sanitizeForFile(name: string) {
-		const sanitized = name
+		// Replace slashes with dash first
+		let sanitized = name.replace(/[\\/]/g, '-');
+		sanitized = sanitized
 			.toLowerCase()
 			.replace(/\s+/g, '_') // Replace spaces and whitespace with a single underscore
-			.replace(/[^a-z0-9_]/g, ''); // Remove all non-alphanumeric chars except underscore
+			.replace(/[^a-z0-9_-]/g, ''); // Allow dash (-) in addition to underscore
 		return sanitized.substring(0, 80);
 	}
 

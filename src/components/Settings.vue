@@ -1,9 +1,22 @@
 <template>
-  <div class="raindrop-settings">
-    <h2>Raindrop Sync</h2>
 
-    <!-- General Settings -->
-    <h3>Global</h3>
+  <div class="raindrop-settings">
+    <h2>Syncing in the rain</h2>
+
+    <!-- Table of Contents -->
+    <nav class="settings-toc">
+      <ul>
+        <li><a href="#global-settings">Global</a></li>
+        <li><a href="#collections-settings">Collections</a></li>
+        <li><a href="#highlight-settings">Highlight</a></li>
+        <!-- <li><a href="#view-options">View Options</a></li> -->
+        <li><a href="#list-view-settings" @click.prevent="handleTocTab('list', 'list-view-settings')">List View</a></li>
+        <li><a href="#file-view-settings" @click.prevent="handleTocTab('file', 'file-view-settings')">File View</a></li>
+      </ul>
+    </nav>
+
+  <!-- General Settings -->
+  <h3 id="global-settings">Global</h3>
     <div class="setting-item">
       <div class="setting-item-info">
         <div class="setting-item-name">API Token</div>
@@ -70,8 +83,8 @@
       </div>
     </div>
 
-    <!-- Collections Settings -->
-    <h3>Collections</h3>
+  <!-- Collections Settings -->
+  <h3 id="collections-settings">Collections</h3>
     <div class="setting-item">
       <div class="setting-item-info">
         <div class="setting-item-name">Cascading Selection</div>
@@ -109,8 +122,8 @@
       </div>
     </div>
     
-    <!-- Highlight Settings -->
-    <h3>Highlight Settings</h3>
+  <!-- Highlight Settings -->
+  <h3 id="highlight-settings">Highlight Settings</h3>
     <div class="hint-text">
         Note: Changes to highlight settings require a full re-sync of the affected files.
     </div>
@@ -138,9 +151,11 @@
         </label>
       </div>
     </div>
+	<span id="list-view-settings"></span>
+	<span id="file-view-settings" style="margin-bottom: 20px;"></span>
 
-    <!-- View-specific Settings -->
-    <h3>View Options</h3>
+  <!-- View-specific Settings -->
+  <h3 id="view-options">View Options</h3>
     <div class="view-switcher">
   <button :class="{ active: settingsView === 'list' }" @click="settingsView = 'list'" aria-label="List View">List View</button>
   <button :class="{ active: settingsView === 'file' }" @click="settingsView = 'file'" aria-label="File View">File View</button>
@@ -157,6 +172,7 @@
 
     <!-- List View Settings -->
     <div v-if="settingsView === 'list'">
+      <h4 style="margin-top:0;">List View Settings</h4>
       <div class="setting-item">
         <div class="setting-item-info">
           <div class="setting-item-name">Show Ribbon Icon</div>
@@ -222,6 +238,7 @@
 
     <!-- File View Settings -->
     <div v-if="settingsView === 'file'">
+      <h4 style="margin-top:0;">File View Settings</h4>
       <div class="setting-item">
         <div class="setting-item-info">
           <div class="setting-item-name">Show Ribbon Icon</div>
@@ -443,6 +460,18 @@
 </template>
 
 <script lang="ts" setup>
+import { nextTick } from 'vue';
+// TOC Tab Switch & Scroll
+function handleTocTab(tab: 'list' | 'file', anchor: string) {
+  settingsView.value = tab;
+  // Nach Tab-Umschaltung scrollen (nach Render)
+  nextTick(() => {
+    const el = document.getElementById(anchor);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
+}
 import CollapsibleHint from './CollapsibleHint.vue';
 // Token-Test-Status
 const tokenStatus = ref<{ status: 'idle' | 'success' | 'error' }>({ status: 'idle' });
@@ -642,6 +671,36 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* Table of Contents Styles */
+.settings-toc {
+  margin: 20px 0 30px 0;
+  padding: 12px 18px;
+  background: var(--background-secondary);
+  border-radius: 6px;
+  border: 1px solid var(--background-modifier-border);
+  font-size: 1em;
+}
+.settings-toc ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+.settings-toc li {
+  margin: 0;
+}
+.settings-toc a {
+  color: var(--text-accent);
+  text-decoration: underline;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.settings-toc a:hover {
+  color: var(--interactive-accent);
+}
 /* Token-Test-Button und Status */
 .token-row {
   display: flex;
