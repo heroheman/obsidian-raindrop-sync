@@ -31,6 +31,8 @@ export interface RaindropSyncSettings {
 	cascadeSelection: boolean;
 	template: string;
 	fileViewTemplate: string;
+	fileViewFilenameTemplate: string;
+	fileViewDateFormat: string;
 	showRibbonList: boolean;
 	showRibbonFile: boolean;
 	useMarkdownHighlights: boolean;
@@ -114,6 +116,8 @@ raindropUrl: "{{raindropUrl .}}"
 ---
 {{raindropLink .}}
 `,
+	fileViewFilenameTemplate: '{{title}}',
+	fileViewDateFormat: 'YYYY-MM-DD',
 	showRibbonList: true,
 	showRibbonFile: true,
 	useMarkdownHighlights: true,
@@ -216,6 +220,61 @@ export default class RaindropSyncPlugin extends Plugin {
 			return new Handlebars.SafeString(`[View Raindrop](${url})`);
 		});
 
+		// Additional helper for custom date formatting
+		Handlebars.registerHelper('formatCustomDate', function (dateStr: string, format: string) {
+			// Validate inputs
+			if (!dateStr) return '';
+			if (!format || typeof format !== 'string') format = 'YYYY-MM-DD';
+			
+			const date = new Date(dateStr);
+			if (isNaN(date.getTime())) return dateStr; // Return original if invalid date
+			
+			const year = date.getFullYear();
+			const month = String(date.getMonth() + 1).padStart(2, '0');
+			const day = String(date.getDate()).padStart(2, '0');
+			const hours = String(date.getHours()).padStart(2, '0');
+			const minutes = String(date.getMinutes()).padStart(2, '0');
+			
+			return format
+				.replace(/YYYY/g, year.toString())
+				.replace(/MM/g, month)
+				.replace(/DD/g, day)
+				.replace(/HH/g, hours)
+				.replace(/mm/g, minutes);
+		});
+
+		// Helper for creation date in filename templates
+		Handlebars.registerHelper('creationDate', function (this: any, format?: string) {
+			// Get the date string from context
+			const dateStr = this.created || this;
+			if (!dateStr) return '';
+			
+			// Get format from parameter or settings
+			let dateFormat = 'YYYY-MM-DD';
+			if (typeof format === 'string') {
+				dateFormat = format;
+			} else if (this.settings?.fileViewDateFormat) {
+				dateFormat = this.settings.fileViewDateFormat;
+			}
+			
+			// Use the formatCustomDate helper
+			const date = new Date(dateStr);
+			if (isNaN(date.getTime())) return dateStr;
+			
+			const year = date.getFullYear();
+			const month = String(date.getMonth() + 1).padStart(2, '0');
+			const day = String(date.getDate()).padStart(2, '0');
+			const hours = String(date.getHours()).padStart(2, '0');
+			const minutes = String(date.getMinutes()).padStart(2, '0');
+			
+			return dateFormat
+				.replace(/YYYY/g, year.toString())
+				.replace(/MM/g, month)
+				.replace(/DD/g, day)
+				.replace(/HH/g, hours)
+				.replace(/mm/g, minutes);
+		});
+
 
 		// This adds a simple command that can be triggered anywhere
 		this.addCommand({
@@ -248,6 +307,12 @@ export default class RaindropSyncPlugin extends Plugin {
 			callback: () => this.generateFileViewIndex()
 		});
 
+		this.addCommand({
+			id: 'rename-raindrop-files',
+			name: 'Rename File View Files',
+			callback: () => this.renameFileViewFiles()
+		});
+
 		// This adds a ribbon icon for quick access to sync
 		if (this.settings.showRibbonList) {
 			this.addRibbonIcon('cloud-download', 'Sync Bookmarks (List View)', () => {
@@ -277,6 +342,13 @@ export default class RaindropSyncPlugin extends Plugin {
 			DEFAULT_SETTINGS.fileViewDataviewColumns,
 			this.settings.fileViewDataviewColumns
 		);
+		// Ensure new fields are properly defaulted for users with older settings
+		if (!this.settings.fileViewFilenameTemplate) {
+			this.settings.fileViewFilenameTemplate = DEFAULT_SETTINGS.fileViewFilenameTemplate;
+		}
+		if (!this.settings.fileViewDateFormat) {
+			this.settings.fileViewDateFormat = DEFAULT_SETTINGS.fileViewDateFormat;
+		}
     }
 
     async saveSettings() {
@@ -300,6 +372,60 @@ export default class RaindropSyncPlugin extends Plugin {
 			.replace(/\s+/g, '_') // Replace spaces and whitespace with a single underscore
 			.replace(/[^a-z0-9_]/g, ''); // Remove all non-alphanumeric chars except underscore
 		return sanitized.substring(0, 80);
+	}
+
+	private generateFileName(raindrop: any): string {
+		const template = Handlebars.compile(this.settings.fileViewFilenameTemplate);
+		
+		// Helper function for date formatting in filename context
+		const formatCustomDate = (dateStr: string, format: string) => {
+			if (!dateStr) return '';
+			if (!format || typeof format !== 'string') format = 'YYYY-MM-DD';
+			
+			const date = new Date(dateStr);
+			if (isNaN(date.getTime())) return dateStr; // Return original if invalid date
+			
+			const year = date.getFullYear();
+			const month = String(date.getMonth() + 1).padStart(2, '0');
+			const day = String(date.getDate()).padStart(2, '0');
+			const hours = String(date.getHours()).padStart(2, '0');
+			const minutes = String(date.getMinutes()).padStart(2, '0');
+			
+			return format
+				.replace(/YYYY/g, year.toString())
+				.replace(/MM/g, month)
+				.replace(/DD/g, day)
+				.replace(/HH/g, hours)
+				.replace(/mm/g, minutes);
+		};
+		
+		const filenameData = {
+			...raindrop,
+			raindropId: raindrop._id,
+			title: raindrop.title || 'Untitled',
+			link: raindrop.link || '',
+			domain: raindrop.domain || '',
+			type: raindrop.type || '',
+			creationDate: formatCustomDate(raindrop.created || '', this.settings.fileViewDateFormat || 'YYYY-MM-DD'),
+		};
+		const renderedFilename = template(filenameData);
+		return this.sanitizeForFile(renderedFilename);
+	}
+
+	private formatCustomDate(dateStr: string, format: string): string {
+		const date = new Date(dateStr);
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 1).padStart(2, '0');
+		const day = String(date.getDate()).padStart(2, '0');
+		const hours = String(date.getHours()).padStart(2, '0');
+		const minutes = String(date.getMinutes()).padStart(2, '0');
+		
+		return format
+			.replace(/YYYY/g, year.toString())
+			.replace(/MM/g, month)
+			.replace(/DD/g, day)
+			.replace(/HH/g, hours)
+			.replace(/mm/g, minutes);
 	}
 
 	async syncListView(incremental = false) {
@@ -578,13 +704,31 @@ export default class RaindropSyncPlugin extends Plugin {
                     
 					const collectionName = collectionsMap.get(raindrop.collection.$id)?.title || 'Unsorted';
 					const collectionFolder = `${fileViewFolder}/${this.sanitizeForPath(collectionName)}`;
-					const fileName = `${this.sanitizeForFile(raindrop.title)}.md`;
+					const fileName = `${this.generateFileName(raindrop)}.md`;
 					const filePath = `${collectionFolder}/${fileName}`;
 
 					if (pages.length > 0) {
-						// Item exists, update it. We don't handle file moves/renames for simplicity.
+						// Item exists, check if it needs to be renamed
 						const existingFilePath = pages[0].file.path;
-						await this.app.vault.adapter.write(existingFilePath, renderedContent);
+						const existingFileName = existingFilePath.split('/').pop();
+						const expectedFileName = `${this.generateFileName(raindrop)}.md`;
+						
+						if (existingFileName !== expectedFileName) {
+							// File needs to be renamed
+							const newFilePath = `${collectionFolder}/${expectedFileName}`;
+							
+							// Ensure collection folder exists
+							if (!await this.app.vault.adapter.exists(collectionFolder)) {
+								await this.app.vault.createFolder(collectionFolder);
+							}
+							
+							// Write content to new location and delete old file
+							await this.app.vault.adapter.write(newFilePath, renderedContent);
+							await this.app.vault.adapter.remove(existingFilePath);
+						} else {
+							// Just update content
+							await this.app.vault.adapter.write(existingFilePath, renderedContent);
+						}
 					} else {
 						// New item, create it
 						if (!await this.app.vault.adapter.exists(collectionFolder)) {
@@ -623,7 +767,7 @@ export default class RaindropSyncPlugin extends Plugin {
 								collectionPath,
 							};
 							const renderedContent = template(raindropWithContext);
-							const fileName = `${this.sanitizeForFile(raindrop.title)}.md`;
+							const fileName = `${this.generateFileName(raindrop)}.md`;
 							const filePath = `${collectionFolder}/${fileName}`;
 							await this.app.vault.adapter.write(filePath, renderedContent);
 						}
@@ -651,7 +795,7 @@ export default class RaindropSyncPlugin extends Plugin {
 								collectionPath: 'Unsorted',
 							};
 							const renderedContent = template(raindropWithContext);
-							const fileName = `${this.sanitizeForFile(raindrop.title)}.md`;
+							const fileName = `${this.generateFileName(raindrop)}.md`;
 							const filePath = `${unsortedFolder}/${fileName}`;
 							await this.app.vault.adapter.write(filePath, renderedContent);
 						}
@@ -859,6 +1003,106 @@ SORT file.ctime DESC
 			new Notice('File view index regenerated.');
 		} catch (e) {
 			new Notice('A critical error occurred during index generation. Check your settings and connection.');
+			console.error(e);
+		}
+	}
+
+	async renameFileViewFiles() {
+		if (!this.settings.collectionIds || this.settings.collectionIds.length === 0) {
+			new Notice('No collections selected.');
+			return;
+		}
+
+		try {
+			new Notice('Starting file rename process...');
+			const fileViewFolder = this.settings.fileViewStorageFolder;
+			
+			// Get all collections for mapping
+			const collections = await getCollections(this.settings);
+			const collectionsMap = new Map(collections.map(c => [c._id, c]));
+			
+			let renamedCount = 0;
+
+			// Process each selected collection
+			for (const collectionId of this.settings.collectionIds) {
+				if (collectionId === 0) continue; // Skip unsorted for now, handle separately
+				
+				const raindrops = await getRaindrops(this.settings, collectionId);
+				const collectionName = collectionsMap.get(collectionId)?.title || 'Unknown';
+				const collectionFolder = `${fileViewFolder}/${this.sanitizeForPath(collectionName)}`;
+				
+				for (const raindrop of raindrops) {
+					const newFileName = `${this.generateFileName(raindrop)}.md`;
+					const newFilePath = `${collectionFolder}/${newFileName}`;
+					
+					// Find existing file with raindropId in frontmatter
+					const allFiles = this.app.vault.getMarkdownFiles();
+					const matchingFiles = allFiles.filter(file => {
+						const cache = this.app.metadataCache.getFileCache(file);
+						return cache?.frontmatter?.raindropId === raindrop._id;
+					});
+					
+					if (matchingFiles.length > 0) {
+						const existingFile = matchingFiles[0];
+						const existingFilePath = existingFile.path;
+						
+						// Only rename if the file path is different
+						if (existingFilePath !== newFilePath) {
+							// Ensure target directory exists
+							if (!await this.app.vault.adapter.exists(collectionFolder)) {
+								await this.app.vault.createFolder(collectionFolder);
+							}
+							
+							// Rename the file
+							await this.app.vault.rename(existingFile, newFilePath);
+							renamedCount++;
+						}
+					}
+				}
+			}
+
+			// Handle Unsorted files
+			if (this.settings.collectionIds.includes(0)) {
+				const raindrops = await getRaindrops(this.settings, 0);
+				const unsortedFolder = `${fileViewFolder}/Unsorted`;
+				
+				for (const raindrop of raindrops) {
+					const newFileName = `${this.generateFileName(raindrop)}.md`;
+					const newFilePath = `${unsortedFolder}/${newFileName}`;
+					
+					// Find existing file with raindropId in frontmatter
+					const allFiles = this.app.vault.getMarkdownFiles();
+					const matchingFiles = allFiles.filter(file => {
+						const cache = this.app.metadataCache.getFileCache(file);
+						return cache?.frontmatter?.raindropId === raindrop._id;
+					});
+					
+					if (matchingFiles.length > 0) {
+						const existingFile = matchingFiles[0];
+						const existingFilePath = existingFile.path;
+						
+						// Only rename if the file path is different
+						if (existingFilePath !== newFilePath) {
+							// Ensure target directory exists
+							if (!await this.app.vault.adapter.exists(unsortedFolder)) {
+								await this.app.vault.createFolder(unsortedFolder);
+							}
+							
+							// Rename the file
+							await this.app.vault.rename(existingFile, newFilePath);
+							renamedCount++;
+						}
+					}
+				}
+			}
+
+			new Notice(`File rename complete. ${renamedCount} files renamed.`);
+			
+			// Regenerate index after renaming
+			await this.generateFileViewIndex();
+			
+		} catch (e) {
+			new Notice('A critical error occurred during file rename. Check your settings and connection.');
 			console.error(e);
 		}
 	}

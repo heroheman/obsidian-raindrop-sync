@@ -295,6 +295,66 @@
           </label>
         </div>
       </div>
+      <h4>File Naming</h4>
+      <div class="setting-item">
+        <div class="setting-item-info">
+          <div class="setting-item-name">Filename Template</div>
+          <div class="setting-item-description">Template for generating filenames. Use the same variables as in templates.</div>
+        </div>
+        <div class="setting-item-control">
+          <div class="filename-control">
+            <input type="text" v-model="localSettings.fileViewFilenameTemplate" @input="updateSettings" placeholder="{{title}}" aria-label="Filename Template">
+          </div>
+        </div>
+      </div>
+      <div class="hint-text">
+        <p><b>Available Variables:</b> &#123;&#123;raindropId&#125;&#125;, &#123;&#123;title&#125;&#125;, &#123;&#123;link&#125;&#125;, &#123;&#123;domain&#125;&#125;, &#123;&#123;type&#125;&#125;, &#123;&#123;creationDate&#125;&#125;</p>
+        <p><b>Example:</b> &#123;&#123;creationDate&#125;&#125;-&#123;&#123;title&#125;&#125;-&#123;&#123;domain&#125;&#125;</p>
+      </div>
+	  <div class="setting-item">
+		<div class="setting-item-info">
+			<div class="setting-item-name">Rename Files</div>
+			<div class="setting-item-description">
+				<p><b>Rename Files:</b> Updates all existing File View files to match the current filename template. This operation is safe and preserves file content.</p>
+			</div>
+		</div>
+		<div class="setting-item-control">
+          <div class="filename-control">
+            <button @click="renameFiles" :disabled="isRenamingFiles" class="mod-warning rename-btn">
+              {{ isRenamingFiles ? 'Renaming...' : 'Rename Files' }}
+            </button>
+          </div>
+		</div>
+	  </div>
+      <div class="setting-item">
+        <div class="setting-item-info">
+          <div class="setting-item-name">Date Format</div>
+          <div class="setting-item-description">Format for date fields in filenames and templates.</div>
+        </div>
+        <div class="setting-item-control">
+          <input type="text" v-model="localSettings.fileViewDateFormat" @input="updateSettings" placeholder="YYYY-MM-DD" aria-label="Date Format">
+        </div>
+      </div>
+      <div class="hint-text">
+        <p><b>Available Formats:</b> YYYY (year), MM (month), DD (day), HH (hour), mm (minute)</p>
+        <p><b>Example:</b> YYYY-MM-DD or YYYY-MM-DD-HH-mm</p>
+      </div>
+	  <div class="setting-item">
+		<div class="setting-item-info">
+			<div class="setting-item-name">Rename Files</div>
+			<div class="setting-item-description"></div>
+		</div>
+		<div class="setting-item-control">
+          <div class="filename-control">
+            <button @click="renameFiles" :disabled="isRenamingFiles" class="mod-warning rename-btn">
+              {{ isRenamingFiles ? 'Renaming...' : 'Rename Files' }}
+            </button>
+          </div>
+		</div>
+	  </div>
+		<div class="hint-text">
+			<p><b>Rename Files:</b> Updates all existing File View files to match the current filename template. This operation is safe and preserves file content.</p>
+		</div>
       <div class="setting-item">
         <div class="setting-item-info">
             <div class="setting-item-name">Bookmark File Template</div>
@@ -357,6 +417,23 @@ async function testApiToken() {
     isTestingToken.value = false;
   }
 }
+
+// File renaming status and function
+const isRenamingFiles = ref(false);
+
+async function renameFiles() {
+  isRenamingFiles.value = true;
+  try {
+    // Use Obsidian's command palette to execute the rename command
+    // @ts-ignore - accessing global app from Obsidian
+    await (window as any).app.commands.executeCommandById('raindrop-sync:rename-raindrop-files');
+  } catch (e) {
+    console.error('Error renaming files:', e);
+  } finally {
+    isRenamingFiles.value = false;
+  }
+}
+
 import { defineProps, defineEmits, ref, watch, onMounted, computed } from 'vue';
 import type { RaindropSyncSettings } from '../main';
 import { getCollections, type RaindropCollection } from '../api';
@@ -690,5 +767,21 @@ a {
   font-family: var(--font-monospace);
   font-size: 0.9em;
   color: var(--text-accent);
+}
+
+.filename-control {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.filename-control input {
+  flex: 1;
+}
+
+.rename-btn {
+  padding: 4px 10px;
+  font-size: 0.9em;
+  white-space: nowrap;
 }
 </style>

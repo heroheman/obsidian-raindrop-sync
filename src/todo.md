@@ -29,6 +29,7 @@
 - [x] Dokumentation: README vollständig
 - [x] Barrierefreiheit: ARIA-Labels/Fokusindikatoren ergänzen
 - [x] Keine Werbung/Spendenaufforderungen im Plugin selbst
+- [?] regenerate links command?
 
 
 ## Roadmap
