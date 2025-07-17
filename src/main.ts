@@ -55,7 +55,8 @@ const DEFAULT_SETTINGS: RaindropSyncSettings = {
 	collectionIds: [],
 	expandedCollectionIds: [],
 	cascadeSelection: true,
-	template: `- [{{title}}]({{link}}) *{{domain}}* {{raindropLink .}}
+	template: `- [{{title}}]({{link}}) (*{{domain}}*)
+	- {{raindropLink .}}
     {{#if tags.length}}
     - _Tags_: {{formatTags tags}}
     {{/if}}
@@ -111,7 +112,7 @@ raindropUrl: "{{raindropUrl .}}"
 {{/if}}
 
 ---
-**Raindrop Link:** {{raindropUrl .}}
+{{raindropLink .}}
 `,
 	showRibbonList: true,
 	showRibbonFile: true,
