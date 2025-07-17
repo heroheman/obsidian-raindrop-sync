@@ -12,7 +12,7 @@
         </div>
       </div>
       <div class="setting-item-control">
-        <input type="password" v-model="localSettings.apiToken" @input="updateSettings" placeholder="Enter your token">
+  <input type="password" v-model="localSettings.apiToken" @input="updateSettings" placeholder="Enter your token" aria-label="Raindrop.io API Token">
       </div>
     </div>
     <div class="setting-item">
@@ -23,7 +23,7 @@
         </div>
       </div>
       <div class="setting-item-control">
-        <input type="text" :value="formattedLastSync" readonly>
+  <input type="text" :value="formattedLastSync" readonly aria-label="Last Sync Date">
         <button @click="clearLastSync" class="mod-warning" v-if="localSettings.lastSync">Clear</button>
       </div>
     </div>
@@ -36,7 +36,7 @@
       </div>
       <div class="setting-item-control">
         <label class="switch">
-          <input type="checkbox" v-model="localSettings.onlyBookmarksWithHighlights" @change="updateSettings">
+          <input type="checkbox" v-model="localSettings.onlyBookmarksWithHighlights" @change="updateSettings" aria-label="Sync only bookmarks with highlights">
           <span class="slider round"></span>
         </label>
       </div>
@@ -51,7 +51,7 @@
       </div>
       <div class="setting-item-control">
         <label class="switch">
-          <input type="checkbox" v-model="localSettings.cascadeSelection" @change="updateSettings">
+          <input type="checkbox" v-model="localSettings.cascadeSelection" @change="updateSettings" aria-label="Cascading Selection">
           <span class="slider round"></span>
         </label>
       </div>
@@ -74,7 +74,7 @@
         </div>
         <div class="setting-item-control">
           <label class="switch">
-            <input type="checkbox" :checked="isUnsortedSelected" @change="handleToggleUnsorted">
+            <input type="checkbox" :checked="isUnsortedSelected" @change="handleToggleUnsorted" aria-label="Include unsorted bookmarks">
             <span class="slider round"></span>
           </label>
         </div>
@@ -93,7 +93,7 @@
       </div>
       <div class="setting-item-control">
         <label class="switch">
-          <input type="checkbox" v-model="localSettings.useMarkdownHighlights" @change="updateSettings">
+          <input type="checkbox" v-model="localSettings.useMarkdownHighlights" @change="updateSettings" aria-label="Enable Highlights">
           <span class="slider round"></span>
         </label>
       </div>
@@ -105,7 +105,7 @@
       </div>
       <div class="setting-item-control">
         <label class="switch">
-          <input type="checkbox" v-model="localSettings.useColoredHighlights" @change="updateSettings">
+          <input type="checkbox" v-model="localSettings.useColoredHighlights" @change="updateSettings" aria-label="Colored Highlights">
           <span class="slider round"></span>
         </label>
       </div>
@@ -114,8 +114,8 @@
     <!-- View-specific Settings -->
     <h3>View Options</h3>
     <div class="view-switcher">
-      <button :class="{ active: settingsView === 'list' }" @click="settingsView = 'list'">List View</button>
-      <button :class="{ active: settingsView === 'file' }" @click="settingsView = 'file'">File View</button>
+  <button :class="{ active: settingsView === 'list' }" @click="settingsView = 'list'" aria-label="List View">List View</button>
+  <button :class="{ active: settingsView === 'file' }" @click="settingsView = 'file'" aria-label="File View">File View</button>
     </div>
 
     <div class="hint-text view-description">
@@ -136,7 +136,7 @@
         </div>
         <div class="setting-item-control">
           <label class="switch">
-            <input type="checkbox" v-model="localSettings.showRibbonList" @change="updateSettings">
+            <input type="checkbox" v-model="localSettings.showRibbonList" @change="updateSettings" aria-label="Show Ribbon Icon (List View)">
             <span class="slider round"></span>
           </label>
         </div>
@@ -147,7 +147,7 @@
           <div class="setting-item-description">The folder where your Raindrop bookmarks file will be stored.</div>
         </div>
         <div class="setting-item-control">
-          <input type="text" v-model="localSettings.storageFolder" @input="updateSettings" placeholder="e.g., Raindrop">
+          <input type="text" v-model="localSettings.storageFolder" @input="updateSettings" placeholder="e.g., Raindrop" aria-label="Storage Folder">
         </div>
       </div>
       <div class="setting-item">
@@ -181,7 +181,7 @@
         </div>
         <div class="setting-item-control">
           <label class="switch">
-            <input type="checkbox" v-model="localSettings.showRibbonFile" @change="updateSettings">
+            <input type="checkbox" v-model="localSettings.showRibbonFile" @change="updateSettings" aria-label="Show Ribbon Icon (File View)">
             <span class="slider round"></span>
           </label>
         </div>
@@ -192,7 +192,7 @@
           <div class="setting-item-description">The root folder where your individual bookmark files will be stored.</div>
         </div>
         <div class="setting-item-control">
-          <input type="text" v-model="localSettings.fileViewStorageFolder" @input="updateSettings" placeholder="e.g., Raindrop/Items">
+          <input type="text" v-model="localSettings.fileViewStorageFolder" @input="updateSettings" placeholder="e.g., Raindrop/Items" aria-label="Items Storage Folder">
         </div>
       </div>
       <div class="setting-item">
@@ -201,7 +201,7 @@
           <div class="setting-item-description">The folder where your Dataview index files will be stored.</div>
         </div>
         <div class="setting-item-control">
-          <input type="text" v-model="localSettings.fileViewIndexFolder" @input="updateSettings" placeholder="e.g., Raindrop/Index">
+          <input type="text" v-model="localSettings.fileViewIndexFolder" @input="updateSettings" placeholder="e.g., Raindrop/Index" aria-label="Index File Folder">
         </div>
       </div>
       <h4>Dataview Columns</h4>
@@ -212,7 +212,7 @@
         </div>
         <div class="setting-item-control">
           <label class="switch">
-            <input type="checkbox" v-model="localSettings.fileViewDataviewColumns.cover" @change="updateSettings">
+            <input type="checkbox" v-model="localSettings.fileViewDataviewColumns.cover" @change="updateSettings" aria-label="Show Cover">
             <span class="slider round"></span>
           </label>
         </div>
@@ -224,7 +224,7 @@
         </div>
         <div class="setting-item-control">
           <label class="switch">
-            <input type="checkbox" v-model="localSettings.fileViewDataviewColumns.tags" @change="updateSettings">
+            <input type="checkbox" v-model="localSettings.fileViewDataviewColumns.tags" @change="updateSettings" aria-label="Show Tags">
             <span class="slider round"></span>
           </label>
         </div>
@@ -236,7 +236,7 @@
         </div>
         <div class="setting-item-control">
           <label class="switch">
-            <input type="checkbox" v-model="localSettings.fileViewDataviewColumns.highlights" @change="updateSettings">
+            <input type="checkbox" v-model="localSettings.fileViewDataviewColumns.highlights" @change="updateSettings" aria-label="Show Highlights">
             <span class="slider round"></span>
           </label>
         </div>
@@ -248,7 +248,7 @@
         </div>
         <div class="setting-item-control">
           <label class="switch">
-            <input type="checkbox" v-model="localSettings.fileViewDataviewColumns.notes" @change="updateSettings">
+            <input type="checkbox" v-model="localSettings.fileViewDataviewColumns.notes" @change="updateSettings" aria-label="Show Notes">
             <span class="slider round"></span>
           </label>
         </div>
@@ -260,7 +260,7 @@
         </div>
         <div class="setting-item-control">
           <label class="switch">
-            <input type="checkbox" v-model="localSettings.fileViewDataviewColumns.type" @change="updateSettings">
+            <input type="checkbox" v-model="localSettings.fileViewDataviewColumns.type" @change="updateSettings" aria-label="Show Type">
             <span class="slider round"></span>
           </label>
         </div>
@@ -488,6 +488,12 @@ onMounted(() => {
   opacity: 0;
   width: 0;
   height: 0;
+}
+
+/* Sichtbarer Fokus-Indikator für Tastatur-Navigation */
+.switch input:focus-visible + .slider {
+  outline: 2px solid var(--color-accent, #3a8bfd);
+  outline-offset: 2px;
 }
 .slider {
   position: absolute;

@@ -6,7 +6,7 @@
 - [ ] configure filename pattern
 - [x] Hinweis, dass Dataview gebraucht wird
 - [x] Double borders wegmachen
-- [?] dataview.js Option? Dann kein Reload mehr
+- [/] dataview.js Option? Dann kein Reload mehr
 - [x] Enable / disable ribbon and commands?
 - [ ] Coffee link (BuyMeACoffee/Spendenlink, falls gewünscht)
 - [ ] Nur Bookmarks mit Highlights syncen
