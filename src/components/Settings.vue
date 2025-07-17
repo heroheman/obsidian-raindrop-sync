@@ -12,7 +12,23 @@
         </div>
       </div>
       <div class="setting-item-control">
-  <input type="password" v-model="localSettings.apiToken" @input="updateSettings" placeholder="Enter your token" aria-label="Raindrop.io API Token">
+        <div class="token-row">
+          <input type="password" v-model="localSettings.apiToken" @input="() => { updateSettings(); resetTokenStatus(); }" placeholder="Enter your token" aria-label="Raindrop.io API Token">
+          <button
+            type="button"
+            class="test-token-btn"
+            :class="{
+              success: tokenStatus.status === 'success',
+              error: tokenStatus.status === 'error'
+            }"
+            @click="testApiToken"
+            :disabled="isTestingToken"
+          >
+            <span v-if="tokenStatus.status === 'success'">Success ✅</span>
+            <span v-else-if="tokenStatus.status === 'error'">Error ❌</span>
+            <span v-else>Token testen</span>
+          </button>
+        </div>
       </div>
     </div>
     <div class="setting-item">
@@ -306,6 +322,41 @@
 </template>
 
 <script lang="ts" setup>
+// Token-Test-Status
+const tokenStatus = ref<{ status: 'idle' | 'success' | 'error' }>({ status: 'idle' });
+const isTestingToken = ref(false);
+
+function resetTokenStatus() {
+  tokenStatus.value = { status: 'idle' };
+}
+
+async function testApiToken() {
+  resetTokenStatus();
+  if (!localSettings.value.apiToken) {
+    tokenStatus.value = { status: 'error' };
+    return;
+  }
+  isTestingToken.value = true;
+  try {
+    const resp = await fetch('https://api.raindrop.io/rest/v1/user', {
+      headers: { 'Authorization': `Bearer ${localSettings.value.apiToken}` }
+    });
+    if (!resp.ok) {
+      tokenStatus.value = { status: 'error' };
+      return;
+    }
+    const data = await resp.json();
+    if (data && data.user && data.user.fullName) {
+      tokenStatus.value = { status: 'success' };
+    } else {
+      tokenStatus.value = { status: 'success' };
+    }
+  } catch (e) {
+    tokenStatus.value = { status: 'error' };
+  } finally {
+    isTestingToken.value = false;
+  }
+}
 import { defineProps, defineEmits, ref, watch, onMounted, computed } from 'vue';
 import type { RaindropSyncSettings } from '../main';
 import { getCollections, type RaindropCollection } from '../api';
@@ -452,6 +503,35 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* Token-Test-Button und Status */
+.token-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.test-token-btn {
+  padding: 4px 10px;
+  font-size: 0.95em;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border, #ccc);
+  background: var(--background-secondary, #f5f5f5);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.test-token-btn.success {
+  background: #2e7d32 !important;
+  color: #fff;
+  border-color: #2e7d32;
+}
+.test-token-btn.error {
+  background: #c62828 !important;
+  color: #fff;
+  border-color: #c62828;
+}
+.test-token-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 .setting-item {
   display: flex;
   justify-content: space-between;

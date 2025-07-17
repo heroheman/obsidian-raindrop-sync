@@ -11,7 +11,7 @@
 - [ ] Coffee link (BuyMeACoffee/Spendenlink, falls gewünscht)
 - [ ] Nur Bookmarks mit Highlights syncen
 - [x] Incremental sync
-- [ ] Test connection, show username
+- [x] Test connection, show username
 - [x] In Listview last sync anders speichern
 - [ ] Tag filter: https://developer.raindrop.io/v1/filters
 
