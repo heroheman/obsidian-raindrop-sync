@@ -35,7 +35,8 @@ export interface RaindropSyncSettings {
 	showRibbonFile: boolean;
 	useMarkdownHighlights: boolean;
 	useColoredHighlights: boolean;
-	lastSync?: string;
+	lastSyncListView?: string;
+	lastSyncFileView?: string;
 	onlyBookmarksWithHighlights: boolean;
 }
 
@@ -112,7 +113,8 @@ collection: "[[{{collectionPath}}]]"
 	showRibbonFile: true,
 	useMarkdownHighlights: true,
 	useColoredHighlights: true,
-	lastSync: undefined,
+	lastSyncListView: undefined,
+	lastSyncFileView: undefined,
 	onlyBookmarksWithHighlights: false,
 }
 
@@ -290,7 +292,7 @@ export default class RaindropSyncPlugin extends Plugin {
 			return;
 		}
 
-		if (incremental && !this.settings.lastSync) {
+		if (incremental && !this.settings.lastSyncListView) {
 			new Notice('First sync, running a full sync.');
 			incremental = false;
 		}
@@ -312,7 +314,7 @@ export default class RaindropSyncPlugin extends Plugin {
 			if (incremental) {
 				let allNewRaindrops: RaindropItem[] = [];
 				for (const collectionId of this.settings.collectionIds) {
-					let raindrops = await getRaindrops(this.settings, collectionId, this.settings.lastSync);
+					let raindrops = await getRaindrops(this.settings, collectionId, this.settings.lastSyncListView);
 					if (highlightIdSet) {
 						raindrops = raindrops.filter(r => highlightIdSet!.has(r._id));
 					}
@@ -339,6 +341,8 @@ export default class RaindropSyncPlugin extends Plugin {
 					content += items.map(item => template(item).trim()).join('\n') + '\n\n';
 				}
                 
+				content += `\n---\n*Created at ${new Date().toLocaleString()}*\n`;
+
 				const folder = this.settings.storageFolder;
 				const fileName = `Incremental Sync - ${new Date().toISOString().slice(0, 10)}.md`;
 				const filePath = `${folder}/${fileName}`;
@@ -433,7 +437,7 @@ export default class RaindropSyncPlugin extends Plugin {
 					content += await processNode(rootNode, 1);
 
 					if (content) {
-						const finalContent = toc + '---\n\n' + content;
+						const finalContent = toc + '---\n\n' + content + `\n---\n*Created at ${new Date().toLocaleString()}${this.settings.lastSyncListView ? ` / Last updated ${new Date(this.settings.lastSyncListView).toLocaleString()}` : ''}*\n`;
 						const fileName = `${rootNode.collection.title.replace(/[\\/:"*?<>|]/g, '')}.md`;
 						const filePath = `${folder}/${fileName}`;
 						await this.app.vault.adapter.write(filePath, finalContent);
@@ -450,6 +454,7 @@ export default class RaindropSyncPlugin extends Plugin {
 						totalSyncedItems += raindrops.length;
 						const renderedRaindrops = raindrops.map(raindrop => template(raindrop).trim());
 						unsortedContent += renderedRaindrops.join('\n');
+						unsortedContent += `\n\n---\n*Created at ${new Date().toLocaleString()}${this.settings.lastSyncListView ? ` / Last updated ${new Date(this.settings.lastSyncListView).toLocaleString()}` : ''}*\n`;
 						await this.app.vault.adapter.write(`${folder}/Unsorted.md`, unsortedContent);
 					}
 				}
@@ -457,7 +462,7 @@ export default class RaindropSyncPlugin extends Plugin {
 				new Notice(`Sync complete. ${totalSyncedItems} items synced.`);
 			}
 
-			this.settings.lastSync = new Date().toISOString();
+			this.settings.lastSyncListView = new Date().toISOString();
 			await this.saveSettings();
 
 		} catch (e) {
@@ -472,7 +477,7 @@ export default class RaindropSyncPlugin extends Plugin {
 			return;
 		}
 
-		if (incremental && !this.settings.lastSync) {
+		if (incremental && !this.settings.lastSyncFileView) {
 			new Notice('First sync, running a full sync.');
 			incremental = false;
 		}
@@ -535,7 +540,7 @@ export default class RaindropSyncPlugin extends Plugin {
 			if (incremental) {
 				const raindropsToSync = [];
 				for (const collectionId of this.settings.collectionIds) {
-					let raindrops = await getRaindrops(this.settings, collectionId, this.settings.lastSync);
+					let raindrops = await getRaindrops(this.settings, collectionId, this.settings.lastSyncFileView);
 					if (highlightIdSet) {
 						raindrops = raindrops.filter(r => highlightIdSet!.has(r._id));
 					}
@@ -646,7 +651,7 @@ export default class RaindropSyncPlugin extends Plugin {
 				: `Sync complete (File View). ${totalSyncedItems} items synced.`
 			);
 
-			this.settings.lastSync = new Date().toISOString();
+			this.settings.lastSyncFileView = new Date().toISOString();
 			await this.saveSettings();
 
 		} catch (e) {
@@ -759,7 +764,8 @@ TABLE WITHOUT ID
 FROM ${fromClause}
 SORT file.ctime DESC
 \`\`\`
-\n`;
+
+`;
 					}
 
 					toc += childrenToc;
@@ -773,7 +779,7 @@ SORT file.ctime DESC
 				const [toc, content] = await processNode(rootNode, 1);
 				
 				if (content) {
-					const finalContent = '# Table of Contents\n' + toc + '---\n\n' + content;
+					const finalContent = '# Table of Contents\n' + toc + '---\n\n' + content + `\n---\n*Index created at ${new Date().toLocaleString()}${this.settings.lastSyncFileView ? ` / Data last updated ${new Date(this.settings.lastSyncFileView).toLocaleString()}` : ''}*\n`;
 					const fileName = `${this.sanitizeForFile(rootNode.collection.title)}.md`;
 					const filePath = `${indexFolder}/${fileName}`;
 					await this.app.vault.adapter.write(filePath, finalContent);
@@ -825,6 +831,9 @@ TABLE WITHOUT ID
 FROM "${unsortedFolder}"
 SORT file.ctime DESC
 \`\`\`
+
+---
+*Index created at ${new Date().toLocaleString()}${this.settings.lastSyncFileView ? ` / Data last updated ${new Date(this.settings.lastSyncFileView).toLocaleString()}` : ''}*
 `;
 					const filePath = `${indexFolder}/Unsorted.md`;
 					await this.app.vault.adapter.write(filePath, dataviewContent.trim());

@@ -17,14 +17,26 @@
     </div>
     <div class="setting-item">
       <div class="setting-item-info">
-        <div class="setting-item-name">Last Sync</div>
+        <div class="setting-item-name">Last Sync (List View)</div>
         <div class="setting-item-description">
-          The date of the last successful sync. Clear this to force a full sync next time.
+          The date of the last successful sync for List View. Clear this to force a full sync next time.
         </div>
       </div>
       <div class="setting-item-control">
-  <input type="text" :value="formattedLastSync" readonly aria-label="Last Sync Date">
-        <button @click="clearLastSync" class="mod-warning" v-if="localSettings.lastSync">Clear</button>
+  <input type="text" :value="formattedLastSyncListView" readonly aria-label="Last Sync Date (List View)">
+        <button @click="clearLastSyncListView" class="mod-warning" v-if="localSettings.lastSyncListView">Clear</button>
+      </div>
+    </div>
+    <div class="setting-item">
+      <div class="setting-item-info">
+        <div class="setting-item-name">Last Sync (File View)</div>
+        <div class="setting-item-description">
+          The date of the last successful sync for File View. Clear this to force a full sync next time.
+        </div>
+      </div>
+      <div class="setting-item-control">
+  <input type="text" :value="formattedLastSyncFileView" readonly aria-label="Last Sync Date (File View)">
+        <button @click="clearLastSyncFileView" class="mod-warning" v-if="localSettings.lastSyncFileView">Clear</button>
       </div>
     </div>
     <div class="setting-item">
@@ -343,16 +355,28 @@ const handleToggleUnsorted = () => {
   updateSettings();
 };
 
-const clearLastSync = () => {
-  localSettings.value.lastSync = undefined;
+const clearLastSyncListView = () => {
+  localSettings.value.lastSyncListView = undefined;
   updateSettings();
 };
 
-const formattedLastSync = computed(() => {
-  if (!localSettings.value.lastSync) {
-    return 'Never';
+const clearLastSyncFileView = () => {
+  localSettings.value.lastSyncFileView = undefined;
+  updateSettings();
+};
+
+const formattedLastSyncListView = computed(() => {
+  if (!localSettings.value.lastSyncListView) {
+    return 'Never synced';
   }
-  return new Date(localSettings.value.lastSync).toLocaleString();
+  return new Date(localSettings.value.lastSyncListView).toLocaleString();
+});
+
+const formattedLastSyncFileView = computed(() => {
+  if (!localSettings.value.lastSyncFileView) {
+    return 'Never synced';
+  }
+  return new Date(localSettings.value.lastSyncFileView).toLocaleString();
 });
 
 const handleToggleExpand = (id: number) => {

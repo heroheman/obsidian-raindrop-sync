@@ -1,4 +1,4 @@
-# TODO
+# TODO "Syncing in the rain"
 
 - [ ] Add a setting to enable/disable the file view index
 - [ ] Readme anpassen
@@ -12,7 +12,9 @@
 - [ ] Nur Bookmarks mit Highlights syncen
 - [x] Incremental sync
 - [ ] Test connection, show username
-- [ ] In Listview last sync anders speichern
+- [x] In Listview last sync anders speichern
+- [ ] Tag filter: https://developer.raindrop.io/v1/filters
+
 
 # Guidelines-Check (Obsidian Plugin Guidelines)
 - [x] Manifest.json: main-Feld ergänzt
@@ -25,5 +27,5 @@
 - [x] Kompatibilität: Unterstützt aktuelle Obsidian-Version
 - [x] Lizenz: LICENSE-Datei hinzugefügt
 - [x] Dokumentation: README vollständig
-- [~] Barrierefreiheit: ARIA-Labels/Fokusindikatoren ergänzen
+- [x] Barrierefreiheit: ARIA-Labels/Fokusindikatoren ergänzen
 - [x] Keine Werbung/Spendenaufforderungen im Plugin selbst
