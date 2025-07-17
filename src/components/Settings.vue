@@ -307,9 +307,12 @@
           </div>
         </div>
       </div>
-      <div class="hint-text">
-        <p><b>Available Variables:</b> &#123;&#123;raindropId&#125;&#125;, &#123;&#123;title&#125;&#125;, &#123;&#123;link&#125;&#125;, &#123;&#123;domain&#125;&#125;, &#123;&#123;type&#125;&#125;, &#123;&#123;creationDate&#125;&#125;</p>
-        <p><b>Example:</b> &#123;&#123;creationDate&#125;&#125;-&#123;&#123;title&#125;&#125;-&#123;&#123;domain&#125;&#125;</p>
+      <div class="hint-text template-help">
+        <p><b>Available Variables:</b></p>
+        <ul>
+          <li><code>_id</code>, <code>title</code>, <code>link</code>, <code>excerpt</code>, <code>note</code>, <code>cover</code>, <code>tags</code>, <code>highlights</code>, <code>created</code>, <code>lastUpdate</code>, <code>type</code>, <code>domain</code>, <code>collection</code>, <code>collectionPath</code>, <code>raindropId</code>, <code>creationDate</code></li>
+        </ul>
+        <p><b>Example:</b> <code>&#123;&#123;creationDate&#125;&#125;-&#123;&#123;title&#125;&#125;-&#123;&#123;domain&#125;&#125;</code></p>
       </div>
 	  <div class="setting-item">
 		<div class="setting-item-info">
@@ -335,9 +338,9 @@
           <input type="text" v-model="localSettings.fileViewDateFormat" @input="updateSettings" placeholder="YYYY-MM-DD" aria-label="Date Format">
         </div>
       </div>
-      <div class="hint-text">
-        <p><b>Available Formats:</b> YYYY (year), MM (month), DD (day), HH (hour), mm (minute)</p>
-        <p><b>Example:</b> YYYY-MM-DD or YYYY-MM-DD-HH-mm</p>
+      <div class="hint-text template-help">
+        <p><b>Available Formats:</b> <code>YYYY</code> (year), <code>MM</code> (month), <code>DD</code> (day), <code>HH</code> (hour), <code>mm</code> (minute)</p>
+        <p><b>Example:</b> <code>YYYY-MM-DD</code> or <code>YYYY-MM-DD-HH-mm</code></p>
       </div>
 	  <div class="setting-item">
 		<div class="setting-item-info">
@@ -363,15 +366,15 @@
       </div>
       <textarea v-model="localSettings.fileViewTemplate" @input="updateSettings"></textarea>
       <div class="hint-text template-help">
-        <p><b>Available Variables (in addition to List View variables):</b></p>
+        <p><b>Available Variables:</b></p>
         <ul>
-          <li><code>collection</code>, <code>collectionPath</code></li>
+          <li><code>_id</code>, <code>title</code>, <code>link</code>, <code>excerpt</code>, <code>note</code>, <code>cover</code>, <code>tags</code>, <code>highlights</code>, <code>created</code>, <code>lastUpdate</code>, <code>type</code>, <code>domain</code>, <code>collection</code>, <code>collectionPath</code>, <code>raindropId</code>, <code>creationDate</code></li>
         </ul>
         <p><b>Available Helpers:</b></p>
         <ul>
-          <li>All helpers from the List View are also available here.</li>
-          <li><code>raindropUrl .</code> - Use as YAML frontmatter field and at end of file</li>
-          <li><code>raindropLink .</code> - Markdown link for File View content</li>
+          <li><code>formatDate date</code>, <code>formatTags tags</code>, <code>formatText text</code>, <code>formatHighlightText highlight</code></li>
+          <li><code>raindropUrl .</code> - Direct URL to the Raindrop item</li>
+          <li><code>raindropLink .</code> - Markdown link: [View Raindrop](url)</li>
         </ul>
       </div>
       <div class="setting-item-control template-actions">
