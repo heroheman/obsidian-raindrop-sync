@@ -903,9 +903,9 @@ export default class RaindropSyncPlugin extends Plugin {
 						const dvSettings = this.settings.fileViewDataviewColumns;
 						const columns = [];
 						if (dvSettings.cover) {
-							columns.push(`choice(length(cover) > 0, "<img src='" + cover + "' width='60'>", "") as "Cover"`);
+							columns.push(`choice(length(cover) > 0, "<img src='" + cover + "' style='max-height:100px;object-fit:cover;aspect-ratio:16/9;display:block;'>", "") as "Cover"`);
 						}
-						columns.push('elink(url, title) as "Title"');
+						columns.push('elink(url, substring(title, 0, 200)) as "Title"');
 						if (dvSettings.tags) {
 							columns.push('tags as "Tags"');
 						}
@@ -972,9 +972,9 @@ SORT file.ctime DESC
 					const dvSettings = this.settings.fileViewDataviewColumns;
 					const columns = [];
 					if (dvSettings.cover) {
-						columns.push(`choice(length(cover) > 0, "<img src='" + cover + "' width='60'>", "") as "Cover"`);
+						columns.push(`choice(length(cover) > 0, "<img src='" + cover + "' style='max-height:100px;object-fit:cover;aspect-ratio:16/9;display:block;'>", "") as "Cover"`);
 					}
-					columns.push('elink(url, title) as "Title"');
+					columns.push('elink(url, substring(title, 0, 200)) as "Title"');
 					if (dvSettings.tags) {
 						columns.push('tags as "Tags"');
 					}
