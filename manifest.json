@@ -1,6 +1,6 @@
 {
 	"id": "raindrop-collection-sync",
-	"name": "Raindrop Sync",
+	"name": "Syncing in the rain",
 	"version": "0.1.0",
 		"minAppVersion": "1.0.0",
 	"description": "Syncs bookmarks from Raindrop.io to Obsidian.",
