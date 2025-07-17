@@ -63,6 +63,43 @@ mark.pink {
 }
 
 /* main.css */
+.collapsible-hint[data-v-ebb1b68a] {
+  margin: 15px 0;
+  border-radius: 4px;
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  font-size: 0.95em;
+  box-shadow: none;
+}
+.collapsible-header[data-v-ebb1b68a] {
+  cursor: pointer;
+  padding: 10px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  user-select: none;
+}
+.chevron[data-v-ebb1b68a] {
+  transition: transform 0.2s;
+  font-size: 1.1em;
+}
+.chevron.open[data-v-ebb1b68a] {
+  transform: rotate(180deg);
+}
+.collapsible-content[data-v-ebb1b68a] {
+  padding: 10px 15px 10px 15px;
+  border-top: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+}
+.fade-enter-active[data-v-ebb1b68a],
+.fade-leave-active[data-v-ebb1b68a] {
+  transition: opacity 0.2s;
+}
+.fade-enter-from[data-v-ebb1b68a],
+.fade-leave-to[data-v-ebb1b68a] {
+  opacity: 0;
+}
 .collection-node[data-v-36f883ab] {
   margin-left: 10px;
 }

@@ -185,18 +185,36 @@
         </div>
       </div>
       <textarea v-model="localSettings.template" @input="updateSettings"></textarea>
-      <div class="hint-text template-help">
-        <p><b>Available Variables:</b></p>
+      <CollapsibleHint title="Template Help">
+        <p><b>Available variables:</b></p>
         <ul>
-          <li><code>_id, title, link, excerpt, note, cover, tags, highlights, created, lastUpdate, type, domain</code></li>
+          <li><code>&#123;&#123;_id&#125;&#125;</code>: Unique ID of the bookmark</li>
+          <li><code>&#123;&#123;title&#125;&#125;</code>: Title of the bookmark</li>
+          <li><code>&#123;&#123;link&#125;&#125;</code>: URL of the bookmark</li>
+          <li><code>&#123;&#123;excerpt&#125;&#125;</code>: Excerpt/description</li>
+          <li><code>&#123;&#123;note&#125;&#125;</code>: Personal note</li>
+          <li><code>&#123;&#123;cover&#125;&#125;</code>: Cover image URL</li>
+          <li><code>&#123;&#123;tags&#125;&#125;</code>: Tags (comma separated)</li>
+          <li><code>&#123;&#123;highlights&#125;&#125;</code>: List of highlights</li>
+          <li><code>&#123;&#123;created&#125;&#125;</code>: Creation date</li>
+          <li><code>&#123;&#123;lastUpdate&#125;&#125;</code>: Last update date</li>
+          <li><code>&#123;&#123;type&#125;&#125;</code>: Type (e.g. article, video)</li>
+          <li><code>&#123;&#123;domain&#125;&#125;</code>: Domain of the URL</li>
+          <li><code>&#123;&#123;collection&#125;&#125;</code>: Name of the collection</li>
+          <li><code>&#123;&#123;collectionPath&#125;&#125;</code>: Full path of the collection</li>
+          <li><code>&#123;&#123;raindropId&#125;&#125;</code>: Raindrop ID</li>
+          <li><code>&#123;&#123;creationDate&#125;&#125;</code>: Formatted creation date (according to date format)</li>
         </ul>
-        <p><b>Available Helpers:</b></p>
+        <p><b>Available helpers:</b></p>
         <ul>
-          <li><code>formatDate date</code>, <code>formatTags tags</code>, <code>formatText text</code>, <code>formatHighlightText highlight</code></li>
-          <li><code>raindropUrl .</code> - Direct URL to the Raindrop item</li>
-          <li><code>raindropLink .</code> - Markdown link: [View Raindrop](url)</li>
+          <li><code>formatDate date</code>: Format a date</li>
+          <li><code>formatTags tags</code>: Format tags as text</li>
+          <li><code>formatText text</code>: Format text</li>
+          <li><code>formatHighlightText highlight</code>: Format a highlight text</li>
+          <li><code>raindropUrl .</code>: Direct URL to the Raindrop item</li>
+          <li><code>raindropLink .</code>: Markdown link: [View Raindrop](url)</li>
         </ul>
-      </div>
+      </CollapsibleHint>
       <div class="setting-item-control template-actions">
           <button @click="emit('reset-template')">Reset to Default</button>
       </div>
@@ -307,13 +325,28 @@
           </div>
         </div>
       </div>
-      <div class="hint-text template-help">
-        <p><b>Available Variables:</b></p>
+      <CollapsibleHint title="Filename Template Help">
+        <p><b>Available variables:</b></p>
         <ul>
-          <li><code>_id</code>, <code>title</code>, <code>link</code>, <code>excerpt</code>, <code>note</code>, <code>cover</code>, <code>tags</code>, <code>highlights</code>, <code>created</code>, <code>lastUpdate</code>, <code>type</code>, <code>domain</code>, <code>collection</code>, <code>collectionPath</code>, <code>raindropId</code>, <code>creationDate</code></li>
+          <li><code>&#123;&#123;_id&#125;&#125;</code>: Unique ID of the bookmark</li>
+          <li><code>&#123;&#123;title&#125;&#125;</code>: Title of the bookmark</li>
+          <li><code>&#123;&#123;link&#125;&#125;</code>: URL of the bookmark</li>
+          <li><code>&#123;&#123;excerpt&#125;&#125;</code>: Excerpt/description</li>
+          <li><code>&#123;&#123;note&#125;&#125;</code>: Personal note</li>
+          <li><code>&#123;&#123;cover&#125;&#125;</code>: Cover image URL</li>
+          <li><code>&#123;&#123;tags&#125;&#125;</code>: Tags (comma separated)</li>
+          <li><code>&#123;&#123;highlights&#125;&#125;</code>: List of highlights</li>
+          <li><code>&#123;&#123;created&#125;&#125;</code>: Creation date</li>
+          <li><code>&#123;&#123;lastUpdate&#125;&#125;</code>: Last update date</li>
+          <li><code>&#123;&#123;type&#125;&#125;</code>: Type (e.g. article, video)</li>
+          <li><code>&#123;&#123;domain&#125;&#125;</code>: Domain of the URL</li>
+          <li><code>&#123;&#123;collection&#125;&#125;</code>: Name of the collection</li>
+          <li><code>&#123;&#123;collectionPath&#125;&#125;</code>: Full path of the collection</li>
+          <li><code>&#123;&#123;raindropId&#125;&#125;</code>: Raindrop ID</li>
+          <li><code>&#123;&#123;creationDate&#125;&#125;</code>: Formatted creation date (according to date format)</li>
         </ul>
         <p><b>Example:</b> <code>&#123;&#123;creationDate&#125;&#125;-&#123;&#123;title&#125;&#125;-&#123;&#123;domain&#125;&#125;</code></p>
-      </div>
+      </CollapsibleHint>
 	  <div class="setting-item">
 		<div class="setting-item-info">
 			<div class="setting-item-name">Rename Files</div>
@@ -338,10 +371,17 @@
           <input type="text" v-model="localSettings.fileViewDateFormat" @input="updateSettings" placeholder="YYYY-MM-DD" aria-label="Date Format">
         </div>
       </div>
-      <div class="hint-text template-help">
-        <p><b>Available Formats:</b> <code>YYYY</code> (year), <code>MM</code> (month), <code>DD</code> (day), <code>HH</code> (hour), <code>mm</code> (minute)</p>
+      <CollapsibleHint title="Date Format Help">
+        <p><b>Available formats:</b></p>
+        <ul>
+          <li><code>YYYY</code>: Year (e.g. 2025)</li>
+          <li><code>MM</code>: Month (01-12)</li>
+          <li><code>DD</code>: Day (01-31)</li>
+          <li><code>HH</code>: Hour (00-23)</li>
+          <li><code>mm</code>: Minute (00-59)</li>
+        </ul>
         <p><b>Example:</b> <code>YYYY-MM-DD</code> or <code>YYYY-MM-DD-HH-mm</code></p>
-      </div>
+      </CollapsibleHint>
 	  <div class="setting-item">
 		<div class="setting-item-info">
 			<div class="setting-item-name">Rename Files</div>
@@ -365,18 +405,36 @@
         </div>
       </div>
       <textarea v-model="localSettings.fileViewTemplate" @input="updateSettings"></textarea>
-      <div class="hint-text template-help">
-        <p><b>Available Variables:</b></p>
+      <CollapsibleHint title="Bookmark Template Help">
+        <p><b>Available variables:</b></p>
         <ul>
-          <li><code>_id</code>, <code>title</code>, <code>link</code>, <code>excerpt</code>, <code>note</code>, <code>cover</code>, <code>tags</code>, <code>highlights</code>, <code>created</code>, <code>lastUpdate</code>, <code>type</code>, <code>domain</code>, <code>collection</code>, <code>collectionPath</code>, <code>raindropId</code>, <code>creationDate</code></li>
+          <li><code>&#123;&#123;_id&#125;&#125;</code>: Unique ID of the bookmark</li>
+          <li><code>&#123;&#123;title&#125;&#125;</code>: Title of the bookmark</li>
+          <li><code>&#123;&#123;link&#125;&#125;</code>: URL of the bookmark</li>
+          <li><code>&#123;&#123;excerpt&#125;&#125;</code>: Excerpt/description</li>
+          <li><code>&#123;&#123;note&#125;&#125;</code>: Personal note</li>
+          <li><code>&#123;&#123;cover&#125;&#125;</code>: Cover image URL</li>
+          <li><code>&#123;&#123;tags&#125;&#125;</code>: Tags (comma separated)</li>
+          <li><code>&#123;&#123;highlights&#125;&#125;</code>: List of highlights</li>
+          <li><code>&#123;&#123;created&#125;&#125;</code>: Creation date</li>
+          <li><code>&#123;&#123;lastUpdate&#125;&#125;</code>: Last update date</li>
+          <li><code>&#123;&#123;type&#125;&#125;</code>: Type (e.g. article, video)</li>
+          <li><code>&#123;&#123;domain&#125;&#125;</code>: Domain of the URL</li>
+          <li><code>&#123;&#123;collection&#125;&#125;</code>: Name of the collection</li>
+          <li><code>&#123;&#123;collectionPath&#125;&#125;</code>: Full path of the collection</li>
+          <li><code>&#123;&#123;raindropId&#125;&#125;</code>: Raindrop ID</li>
+          <li><code>&#123;&#123;creationDate&#125;&#125;</code>: Formatted creation date (according to date format)</li>
         </ul>
-        <p><b>Available Helpers:</b></p>
+        <p><b>Available helpers:</b></p>
         <ul>
-          <li><code>formatDate date</code>, <code>formatTags tags</code>, <code>formatText text</code>, <code>formatHighlightText highlight</code></li>
-          <li><code>raindropUrl .</code> - Direct URL to the Raindrop item</li>
-          <li><code>raindropLink .</code> - Markdown link: [View Raindrop](url)</li>
+          <li><code>formatDate date</code>: Format a date</li>
+          <li><code>formatTags tags</code>: Format tags as text</li>
+          <li><code>formatText text</code>: Format text</li>
+          <li><code>formatHighlightText highlight</code>: Format a highlight text</li>
+          <li><code>raindropUrl .</code>: Direct URL to the Raindrop item</li>
+          <li><code>raindropLink .</code>: Markdown link: [View Raindrop](url)</li>
         </ul>
-      </div>
+      </CollapsibleHint>
       <div class="setting-item-control template-actions">
           <button @click="emit('reset-file-template')">Reset to Default</button>
       </div>
@@ -385,6 +443,7 @@
 </template>
 
 <script lang="ts" setup>
+import CollapsibleHint from './CollapsibleHint.vue';
 // Token-Test-Status
 const tokenStatus = ref<{ status: 'idle' | 'success' | 'error' }>({ status: 'idle' });
 const isTestingToken = ref(false);
