@@ -29,3 +29,18 @@
 - [x] Dokumentation: README vollständig
 - [x] Barrierefreiheit: ARIA-Labels/Fokusindikatoren ergänzen
 - [x] Keine Werbung/Spendenaufforderungen im Plugin selbst
+
+
+## Roadmap
+
+# Erweiterte Features 
+- [ ] Erweiterbares Template-System: Typ-spezifische Templates (Link, Artikel, Bild, Video, etc.) und on-the-fly Overrides
+- [ ] Quick-Import-Funktion: Einzelne Raindrops per URL oder ID importieren
+- [ ] Dynamische Collection-Auswahl: Auswahl aus einer Liste, die direkt aus Raindrop.io geladen wird
+- [ ] Eigene Tags beim Import automatisch anhängen
+- [ ] Konfigurierbares Banner-Feld im Frontmatter
+- [ ] Fortschrittliche Fehlerbehandlung: Logging, API-Rate-Limiting, automatische Retries
+- [ ] Undo-/Recovery-Funktion für fehlerhafte Importe
+- [ ] Erweiterte Highlight-Verarbeitung (z.B. Notizen zu Highlights, UI-Verbesserungen)
+- [ ] Optionale Demo-Note/Beispiel-Output generieren
+- [ ] Verbesserte UI/UX: Kontextuelle Hilfelinks, Reset-Buttons für Templates, bessere Modallayouts
