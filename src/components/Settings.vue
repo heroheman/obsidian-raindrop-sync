@@ -177,6 +177,8 @@
         <p><b>Available Helpers:</b></p>
         <ul>
           <li><code>formatDate date</code>, <code>formatTags tags</code>, <code>formatText text</code>, <code>formatHighlightText highlight</code></li>
+          <li><code>raindropUrl .</code> - Direct URL to the Raindrop item</li>
+          <li><code>raindropLink .</code> - Markdown link: [View Raindrop](url)</li>
         </ul>
       </div>
       <div class="setting-item-control template-actions">
@@ -292,6 +294,8 @@
         <p><b>Available Helpers:</b></p>
         <ul>
           <li>All helpers from the List View are also available here.</li>
+          <li><code>raindropUrl .</code> - Use as YAML frontmatter field and at end of file</li>
+          <li><code>raindropLink .</code> - Markdown link for File View content</li>
         </ul>
       </div>
       <div class="setting-item-control template-actions">

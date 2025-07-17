@@ -55,7 +55,7 @@ const DEFAULT_SETTINGS: RaindropSyncSettings = {
 	collectionIds: [],
 	expandedCollectionIds: [],
 	cascadeSelection: true,
-	template: `- [{{title}}]({{link}}) *{{domain}}*
+	template: `- [{{title}}]({{link}}) *{{domain}}* {{raindropLink .}}
     {{#if tags.length}}
     - _Tags_: {{formatTags tags}}
     {{/if}}
@@ -86,6 +86,7 @@ raindropType: "{{type}}"
 raindropCollectionId: {{collection.$id}}
 domain: "{{domain}}"
 collection: "[[{{collectionPath}}]]"
+raindropUrl: "{{raindropUrl .}}"
 ---
 
 # {{title}}
@@ -108,6 +109,9 @@ collection: "[[{{collectionPath}}]]"
   {{/if}}
 {{/each}}
 {{/if}}
+
+---
+**Raindrop Link:** {{raindropUrl .}}
 `,
 	showRibbonList: true,
 	showRibbonFile: true,
@@ -198,6 +202,17 @@ export default class RaindropSyncPlugin extends Plugin {
 			const firstParagraph = wrapInHighlight(paragraphs[0]);
 			const additionalParagraphs = paragraphs.slice(1).map(p => `        - ${p}`).join('\n');
 			return new Handlebars.SafeString(firstParagraph + (additionalParagraphs ? '\n' + additionalParagraphs : ''));
+		});
+
+		Handlebars.registerHelper('raindropUrl', function (raindrop: any) {
+			if (!raindrop || !raindrop._id) return '';
+			return `https://app.raindrop.io/my/0/item/${raindrop._id}`;
+		});
+
+		Handlebars.registerHelper('raindropLink', function (raindrop: any) {
+			if (!raindrop || !raindrop._id) return '';
+			const url = `https://app.raindrop.io/my/0/item/${raindrop._id}`;
+			return new Handlebars.SafeString(`[View Raindrop](${url})`);
 		});
 
 
