@@ -868,9 +868,11 @@ export default class RaindropSyncPlugin extends Plugin {
 				
 				const title = node.collection.title;
 				const fromClause = `"${fileViewFolder}/${this.sanitizeForPath(node.collection.title)}"`;
+				console.log('Dataview FROM:', fromClause);
 				
 				// Prüfe ob der Collection-Ordner existiert und Dateien enthält
 				const collectionFolder = `${fileViewFolder}/${this.sanitizeForPath(node.collection.title)}`;
+				console.log('Collection folder:', collectionFolder);
 				let hasFiles = false;
 				if (await this.app.vault.adapter.exists(collectionFolder)) {
 					try {
@@ -944,6 +946,7 @@ SORT file.ctime DESC
 					const finalContent = '# Table of Contents\n' + toc + '---\n\n' + content + `\n---\n*Index created at ${new Date().toLocaleString()}${this.settings.lastSyncFileView ? ` / Data last updated ${new Date(this.settings.lastSyncFileView).toLocaleString()}` : ''}*\n`;
 					const fileName = `${this.sanitizeForFile(rootNode.collection.title)}.md`;
 					const filePath = `${indexFolder}/${fileName}`;
+					console.log('Index filePath:', filePath);
 					await this.app.vault.adapter.write(filePath, finalContent);
 				}
 			}
@@ -951,6 +954,7 @@ SORT file.ctime DESC
 			// Handle "Unsorted" collection
 			if (this.settings.collectionIds.includes(0)) {
 				const unsortedFolder = `${fileViewFolder}/Unsorted`;
+				console.log('Unsorted folder:', unsortedFolder);
 				
 				// Prüfe ob der Unsorted-Ordner existiert und Dateien enthält
 				let hasFiles = false;
@@ -998,6 +1002,7 @@ SORT file.ctime DESC
 *Index created at ${new Date().toLocaleString()}${this.settings.lastSyncFileView ? ` / Data last updated ${new Date(this.settings.lastSyncFileView).toLocaleString()}` : ''}*
 `;
 					const filePath = `${indexFolder}/Unsorted.md`;
+					console.log('Unsorted index filePath:', filePath);
 					await this.app.vault.adapter.write(filePath, dataviewContent.trim());
 				}
 			}
